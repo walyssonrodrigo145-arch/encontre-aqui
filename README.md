@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EncontreAqui — Marketplace de Serviços Locais
 
-## Getting Started
+Plataforma que conecta **clientes** a **prestadores de serviços verificados**, com busca geolocalizada, orçamentos, agendamentos, avaliações, assinaturas e painel administrativo.
 
-First, run the development server:
+## 🚀 Como rodar
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:push    # cria as tabelas (SQLite local em ./data/local.db)
+npm run seed       # popula dados de demonstração
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔑 Contas de demonstração (senha: `123456`)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Perfil | E-mail |
+|---|---|
+| Admin | admin@encontreaqui.com |
+| Cliente | cliente@email.com |
+| Prestador (Premium) | joao@demo.com |
+| Prestador (Profissional) | carlos@demo.com |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧭 Fluxo principal
 
-## Learn More
+**Cliente:** Buscar → Comparar → Solicitar orçamento → Agendar → Acompanhar status → Avaliar
+**Prestador:** Cadastrar (8 etapas) → Ser aprovado → Assinar plano → Receber solicitações → Responder orçamentos → Gerenciar agenda → Impulsionar
 
-To learn more about Next.js, take a look at the following resources:
+## 🏗️ Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Next.js 16** (App Router, Server Actions, Turbopack) + TypeScript
+- **TailwindCSS v4** (design system próprio, mobile-first, PWA)
+- **SQLite (libsql) + Drizzle ORM** — portável para Postgres/PostGIS
+- **Auth JWT própria** (jose + bcryptjs) com roles CUSTOMER / PROVIDER / ADMIN
+- **Pagamentos:** adapter `PaymentGateway` (`src/server/services/payments.ts`) com modo demo (confirma na hora). Para produção, implemente `AsaasGateway` e aponte o webhook para `/api/webhooks/payments`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📂 Estrutura
 
-## Deploy on Vercel
+```
+src/
+├── app/                  # rotas (público, /app cliente, /prestador, /admin)
+├── components/           # design system + formulários client
+├── lib/                  # db, schema (26 tabelas), auth, utils, validações (zod)
+├── server/
+│   ├── actions/          # server actions por domínio (auth, quotes, appointments...)
+│   ├── services/         # regras de negócio (ranking, agenda, notificações, pagamentos)
+│   └── rate-limit.ts
+└── db/seed.ts            # dados demo (12 prestadores em Teófilo Otoni/MG)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ⚙️ Regras de negócio implementadas
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Ranking ponderado** (serviço 30% · distância 25% · avaliações 20% · resposta 10% · perfil 10% · plano 5%) com impulsionamento limitado a +30% — pesos editáveis na tabela `ranking_config`
+- **Máquina de estados** de agendamento com transições validadas e trava de slot (sem duplo agendamento)
+- **Avaliações** permitidas apenas após agendamento `COMPLETED` real (UNIQUE por agendamento)
+- **Isolamento de dados** por sessão em todas as server actions + rate limiting
+- **Assinatura** controla limites do plano; inadimplência → `PAST_DUE`; impulsão expira via `/api/cron?token=CRON_SECRET`
+- **LGPD**: consentimento no cadastro, termos/privacidade, dados sensíveis nunca públicos
+
+## 🗺️ Roadmap pós-MVP
+
+WhatsApp API · Push (FCM) · upload real de mídias (R2) · comissão por serviço · IA para matching · apps nativos · migração Postgres+PostGIS (queries já isoladas em `src/server/services`).

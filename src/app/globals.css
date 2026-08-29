@@ -1,26 +1,213 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f7fb;
+  --foreground: #14121f;
+  --card: #ffffff;
+  --border: #e8e7f2;
+  --muted: #6f6c85;
+  --primary: #6d4aff;
+  --primary-dark: #5636e8;
+  --primary-light: #eae6ff;
+  --primary-soft: #f3f0ff;
+  --accent: #f59e0b;
+  --danger: #ef4444;
+  --info: #2f80ed;
+  --success: #22c55e;
+  --sidebar: #12101f;
+  --sidebar-hover: #1d1a33;
+  --gradient-brand: linear-gradient(120deg, #8a3ffc 0%, #6d4aff 45%, #2f80ed 100%);
+  --shadow-soft: 0 8px 30px rgba(109, 74, 255, 0.1);
+  --shadow-card: 0 2px 12px rgba(20, 18, 31, 0.05);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-success: var(--success);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-outfit);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip; /* rede de segurança contra scroll horizontal */
+}
+
+.font-display {
+  font-family: var(--font-outfit), var(--font-inter), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Formulários ─── */
+.input {
+  @apply w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-slate-400 focus:border-[var(--primary)] focus:outline-none focus:ring-4 focus:ring-[var(--primary)]/10 transition;
+}
+
+.label {
+  @apply mb-1.5 block text-sm font-medium text-slate-700;
+}
+
+.card {
+  @apply rounded-2xl border border-[var(--border)] bg-white;
+  box-shadow: var(--shadow-card);
+}
+
+.card-hover {
+  @apply transition-all duration-300;
+  box-shadow: var(--shadow-card);
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(109, 74, 255, 0.14);
+  border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
+}
+
+/* ─── Botões (touch-friendly) ─── */
+.btn,
+.btn-primary,
+.btn-outline,
+.btn-danger,
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 cursor-pointer;
+  min-height: 42px;
+}
+
+.btn-primary {
+  @apply text-white;
+  background: var(--primary);
+  box-shadow: 0 6px 18px rgba(109, 74, 255, 0.28);
+}
+.btn-primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(109, 74, 255, 0.36);
+}
+
+.btn-outline {
+  @apply border bg-white text-slate-700;
+  border-color: var(--border);
+}
+.btn-outline:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.btn-danger {
+  @apply bg-[var(--danger)] text-white hover:bg-red-600;
+}
+
+.btn-ghost {
+  @apply text-slate-600 hover:bg-[var(--primary-soft)] hover:text-[var(--primary)];
+}
+
+.btn-gradient {
+  @apply text-white;
+  background: var(--gradient-brand);
+  box-shadow: 0 8px 22px rgba(109, 74, 255, 0.35);
+}
+.btn-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(109, 74, 255, 0.45);
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.badge-success {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+/* ─── Glassmorphism ─── */
+.glass {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Gradiente de marca ─── */
+.bg-brand-gradient {
+  background: var(--gradient-brand);
+}
+
+.text-brand-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ─── Animações ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.animate-pulse-dot {
+  animation: pulseDot 1.6s ease-in-out infinite;
+}
+
+@keyframes floatSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: floatSoft 3.5s ease-in-out infinite;
+}
+
+/* ─── Scrollbars discretas ─── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ─── Leaflet: mantém o mapa abaixo de headers/modais ─── */
+.relative.z-0 .leaflet-pane,
+.relative.z-0 .leaflet-top,
+.relative.z-0 .leaflet-bottom {
+  z-index: 10;
 }

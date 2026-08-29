@@ -1,0 +1,18 @@
+{
+  "name": "EncontreAqui — Profissionais perto de você",
+  "short_name": "EncontreAqui",
+  "description": "Encontre profissionais de confiança perto de você. Compare, orce e agende.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
