@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  Award,
   BrickWall,
   Check,
   ChevronRight,
@@ -43,6 +44,32 @@ const TOP_SEARCHES: { label: string; icon: React.ReactNode }[] = [
 
 export function HeroSection({ isProvider, firstName, featured }: HeroProps) {
   const main = featured[0];
+
+  // Tags 100% derivadas de dados reais do prestador
+  const heroTags: { key: string; label: string; icon: React.ReactNode; amber?: boolean }[] = [];
+  if (main) {
+    if (main.availableToday)
+      heroTags.push({
+        key: "disp",
+        label: "Disponível hoje",
+        icon: <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />,
+      });
+    if (main.ratingCount >= 10)
+      heroTags.push({
+        key: "aval",
+        label: "Bem avaliado",
+        icon: <Star size={11} className="fill-[var(--accent)] text-[var(--accent)]" />,
+      });
+    if (main.completedJobs >= 20)
+      heroTags.push({ key: "exp", label: "Experiente", icon: <Award size={11} /> });
+    if (main.emergency)
+      heroTags.push({
+        key: "emerg",
+        label: "Atende emergências",
+        icon: <Zap size={11} />,
+        amber: true,
+      });
+  }
 
   return (
     <section className="relative overflow-hidden">
@@ -172,7 +199,7 @@ export function HeroSection({ isProvider, firstName, featured }: HeroProps) {
         {!isProvider && main && (
           <FadeSlide delay={0.2} className="relative hidden min-h-[480px] lg:block">
             {/* card principal */}
-            <div className="card absolute left-0 right-8 top-2 z-10 p-6 shadow-2xl shadow-[var(--primary)]/10">
+            <div className="card absolute left-14 right-0 top-2 z-10 p-6 shadow-2xl shadow-[var(--primary)]/10">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-base font-bold text-white shadow-[0_6px_16px_rgba(109,74,255,0.35)]">
                   {initials(main.displayName)}
@@ -205,12 +232,28 @@ export function HeroSection({ isProvider, firstName, featured }: HeroProps) {
                 <MapPin size={13} className="text-slate-400" /> {main.city} – {main.state}
               </p>
 
-              {main.availableToday && (
+              {heroTags.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="badge-success">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />
-                    Disponível hoje
-                  </span>
+                  {heroTags.map((t) =>
+                    t.key === "disp" ? (
+                      <span key={t.key} className="badge-success">
+                        {t.icon}
+                        {t.label}
+                      </span>
+                    ) : (
+                      <span
+                        key={t.key}
+                        className={
+                          t.amber
+                            ? "inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700"
+                            : "inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--primary-dark)]"
+                        }
+                      >
+                        {t.icon}
+                        {t.label}
+                      </span>
+                    ),
+                  )}
                 </div>
               )}
 

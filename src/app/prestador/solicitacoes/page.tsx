@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { and, desc, eq, ne } from "drizzle-orm";
-import { ClipboardList } from "lucide-react";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { ArrowLeft, ArrowRight, ClipboardList } from "lucide-react";
 import { db } from "@/lib/db";
 import { customers, providers, quoteResponses, quotes, users } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
@@ -12,12 +12,24 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Solicitações" };
 
-export default async function ProviderQuotesPage() {
+const PAGE_SIZE = 20;
+
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function ProviderQuotesPage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const pageRaw = Number(Array.isArray(sp.page) ? sp.page[0] : sp.page);
+  const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+
   const session = await requireRole("PROVIDER");
   const [provider] = await db.select().from(providers).where(eq(providers.userId, session.userId)).limit(1);
   if (!provider) return null;
 
-  const [openQuotes, answeredQuotes] = await Promise.all([
+  const answeredFilter = and(eq(quotes.providerId, provider.id), ne(quotes.status, "OPEN"));
+
+  const [openQuotes, answeredQuotes, totalRow] = await Promise.all([
     db
       .select({
         quote: quotes,
@@ -38,10 +50,15 @@ export default async function ProviderQuotesPage() {
       .innerJoin(customers, eq(quotes.customerId, customers.id))
       .innerJoin(users, eq(customers.userId, users.id))
       .leftJoin(quoteResponses, eq(quoteResponses.quoteId, quotes.id))
-      .where(and(eq(quotes.providerId, provider.id), ne(quotes.status, "OPEN")))
+      .where(answeredFilter)
       .orderBy(desc(quotes.createdAt))
-      .limit(20),
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db.select({ c: sql<number>`count(*)` }).from(quotes).where(answeredFilter),
   ]);
+
+  const totalAnswered = Number(totalRow[0]?.c ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalAnswered / PAGE_SIZE));
 
   return (
     <div className="space-y-8">
@@ -62,7 +79,10 @@ export default async function ProviderQuotesPage() {
         ) : (
           <ul className="space-y-3">
             {openQuotes.map(({ quote, customerName }) => (
-              <li key={quote.id} className="card p-4">
+              <li
+                key={quote.id}
+                className="card card-hover border-l-[3px] border-l-[var(--primary)] p-4"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-bold text-slate-800">{customerName}</p>
                   <div className="flex gap-1.5">
@@ -84,7 +104,7 @@ export default async function ProviderQuotesPage() {
 
       {answeredQuotes.length > 0 && (
         <section>
-          <SectionTitle>Histórico</SectionTitle>
+          <SectionTitle>Histórico ({totalAnswered})</SectionTitle>
           <ul className="space-y-2">
             {answeredQuotes.map(({ quote, customerName, response }) => (
               <li key={`${quote.id}-${response?.id ?? 0}`} className="card flex flex-wrap items-center justify-between gap-2 p-4">
@@ -98,12 +118,38 @@ export default async function ProviderQuotesPage() {
                   )}
                   <StatusBadge
                     status={quote.status}
-                    label={quote.status === "ACCEPTED" ? "Aceito ✅" : quote.status === "ANSWERED" ? "Aguardando cliente" : quote.status}
+                    label={quote.status === "ACCEPTED" ? "Aceito ✅" : quote.status === "ANSWERED" ? "Aguardando cliente" : "Encerrado"}
                   />
                 </div>
               </li>
             ))}
           </ul>
+
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              {page > 1 ? (
+                <Link href={`/prestador/solicitacoes?page=${page - 1}`} className="btn-outline px-4 py-2 text-xs">
+                  <ArrowLeft size={13} /> Anterior
+                </Link>
+              ) : (
+                <span className="btn-outline pointer-events-none px-4 py-2 text-xs opacity-50">
+                  <ArrowLeft size={13} /> Anterior
+                </span>
+              )}
+              <span className="text-xs text-slate-500">
+                Página {page} de {totalPages}
+              </span>
+              {page < totalPages ? (
+                <Link href={`/prestador/solicitacoes?page=${page + 1}`} className="btn-outline px-4 py-2 text-xs">
+                  Próxima <ArrowRight size={13} />
+                </Link>
+              ) : (
+                <span className="btn-outline pointer-events-none px-4 py-2 text-xs opacity-50">
+                  Próxima <ArrowRight size={13} />
+                </span>
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>

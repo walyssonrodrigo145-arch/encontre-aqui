@@ -6,9 +6,17 @@ import { db } from "./db";
 import { users } from "./schema";
 
 const COOKIE_NAME = "ea_session";
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "dev-secret-change-me-in-production-0123456789",
-);
+function getAuthSecret(): string {
+  const s = process.env.AUTH_SECRET;
+  if (!s) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET é obrigatório em produção.");
+    }
+    return "dev-secret-change-me-in-production-0123456789";
+  }
+  return s;
+}
+const secret = new TextEncoder().encode(getAuthSecret());
 
 export type Role = "CUSTOMER" | "PROVIDER" | "ADMIN";
 

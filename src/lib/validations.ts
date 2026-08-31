@@ -33,7 +33,11 @@ export const quoteRequestSchema = z.object({
   serviceId: z.number().optional(),
   description: z.string().min(10, "Descreva o que precisa (mínimo 10 caracteres)").max(2000),
   urgency: z.enum(["NORMAL", "URGENT", "EMERGENCY"]),
-  desiredDate: z.string().optional(),
+  desiredDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data desejada inválida")
+    .max(10)
+    .optional(),
   addressText: z.string().min(3).max(200),
 });
 

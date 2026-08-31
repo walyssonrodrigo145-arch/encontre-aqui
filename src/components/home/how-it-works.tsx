@@ -1,3 +1,4 @@
+import { CheckCircle2, Handshake, Search, Users } from "lucide-react";
 import { FadeIn } from "@/components/motion";
 
 interface Step {
@@ -12,25 +13,25 @@ const STEPS: Step[] = [
     num: "01",
     title: "Busque",
     desc: "Informe o serviço e sua localização.",
-    icon: <SearchSvg />,
+    icon: <Search size={22} />,
   },
   {
     num: "02",
     title: "Compare",
     desc: "Veja perfis, avaliações e informações.",
-    icon: <UsersSvg />,
+    icon: <Users size={22} />,
   },
   {
     num: "03",
     title: "Escolha",
     desc: "Escolha o profissional ideal para você.",
-    icon: <CheckCircleSvg />,
+    icon: <CheckCircle2 size={22} />,
   },
   {
     num: "04",
     title: "Contrate",
     desc: "Combine os detalhes e realize o serviço.",
-    icon: <HandshakeSvg />,
+    icon: <Handshake size={22} />,
   },
 ];
 
@@ -97,42 +98,3 @@ export function HowItWorks() {
     </section>
   );
 }
-
-function SearchSvg() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function UsersSvg() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function CheckCircleSvg() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  );
-}
-
-function HandshakeSvg() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="m11 17 2 2a1 1 0 1 0 3-3" />
-      <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3v2.3a4 4 0 0 0 1.17 2.83L11 15" />
-    </svg>
-  );
-}
-

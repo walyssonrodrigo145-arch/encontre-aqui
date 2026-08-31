@@ -136,6 +136,21 @@ export async function upsertPlanAction(
   }
 }
 
+export async function togglePlanAction(planId: number, isActive: boolean): Promise<AdminState> {
+  try {
+    await requireRole("ADMIN");
+    await db
+      .update(subscriptionPlans)
+      .set({ isActive })
+      .where(eq(subscriptionPlans.id, planId));
+    await audit(isActive ? "plan_activate" : "plan_deactivate", "PLAN", planId);
+    revalidatePath("/admin/planos");
+    return { success: isActive ? "Plano ativado." : "Plano desativado." };
+  } catch (e) {
+    return { error: friendlyError(e) };
+  }
+}
+
 export async function toggleCategoryAction(categoryId: number, isActive: boolean): Promise<AdminState> {
   try {
     await requireRole("ADMIN");

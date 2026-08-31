@@ -107,22 +107,33 @@ export async function createReviewAction(
   return { success: "Avaliação enviada. Obrigado pelo feedback!" };
 }
 
-export async function reportReviewAction(reviewId: number, reason: string) {
+export async function reportReviewAction(reviewId: number, reason: string): Promise<{ error?: string }> {
   let session = await requireRole("PROVIDER").catch(() => null);
   if (!session) session = await requireRole("CUSTOMER").catch(() => null);
-  if (!session) return;
+  if (!session) return { error: "Acesso negado." };
+  const cleanReason = reason.trim().slice(0, 500);
+  if (cleanReason.length < 3) return { error: "Descreva o motivo da denúncia." };
+
+  const [review] = await db.select({ id: reviews.id }).from(reviews).where(eq(reviews.id, reviewId)).limit(1);
+  if (!review) return { error: "Avaliação não encontrada." };
+
   await db.insert(reports).values({
     reporterId: session.userId,
     targetType: "REVIEW",
     targetId: reviewId,
-    reason: reason.slice(0, 500),
+    reason: cleanReason,
   });
+  return {};
 }
 
 export async function replyReviewAction(reviewId: number, reply: string): Promise<{ error?: string }> {
   const session = await requireRole("PROVIDER");
-  const [provider] = await db.select({ id: providers.id }).from(providers).where(eq(providers.userId, session.userId)).limit(1);
+  const [provider] = await db.select({ id: providers.id, status: providers.status }).from(providers).where(eq(providers.userId, session.userId)).limit(1);
   if (!provider) return { error: "Perfil não encontrado." };
+  if (provider.status !== "APPROVED") return { error: "Sua conta não está autorizada a responder avaliações." };
+
+  const clean = reply.trim();
+  if (clean.length < 2) return { error: "Escreva uma resposta antes de enviar." };
 
   const [review] = await db
     .select({ id: reviews.id })
@@ -131,7 +142,7 @@ export async function replyReviewAction(reviewId: number, reply: string): Promis
     .limit(1);
   if (!review) return { error: "Avaliação não encontrada." };
 
-  await db.update(reviews).set({ providerReply: reply.slice(0, 500) }).where(eq(reviews.id, reviewId));
+  await db.update(reviews).set({ providerReply: clean.slice(0, 500) }).where(eq(reviews.id, reviewId));
   revalidatePath("/prestador/avaliacoes");
   return {};
 }

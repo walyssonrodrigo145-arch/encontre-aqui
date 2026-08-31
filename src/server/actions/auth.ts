@@ -1,7 +1,8 @@
-"use server";
+﻿"use server";
 
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { customers, providers, users } from "@/lib/schema";
@@ -19,6 +20,12 @@ export interface ActionState {
   success?: string;
 }
 
+
+/** IP do chamador (proxy-aware) para dimensão de rate limit. */
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return (h.get("x-forwarded-for") ?? "unknown").split(",")[0]!.trim();
+}
 export async function registerAction(
   _prev: ActionState | undefined,
   formData: FormData,
@@ -38,8 +45,11 @@ export async function registerAction(
   }
   const { name, email, phone, password, role, personType, document } = parsed.data;
 
-  const limited = rateLimit(`register:${email}`, 5, 60_000);
-  if (!limited) return { error: "Muitas tentativas. Aguarde um minuto." };
+  // anti-spam: por e-mail E por IP (impossibilita spraying com lista de e-mails)
+  const ip = await clientIp();
+  if (!rateLimit(`register:${email}`, 5, 60_000) || !rateLimit(`register-ip:${ip}`, 20, 3_600_000)) {
+    return { error: "Muitas tentativas. Aguarde um minuto." };
+  }
 
   // valida algoritmo do documento
   const docValid =
@@ -140,8 +150,14 @@ export async function loginAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
-  const limited = rateLimit(`login:${parsed.data.email}`, 8, 60_000);
-  if (!limited) return { error: "Muitas tentativas. Aguarde um minuto." };
+  // anti-bruteforce: por e-mail E por IP
+  const ip = await clientIp();
+  if (
+    !rateLimit(`login:${parsed.data.email}`, 8, 60_000) ||
+    !rateLimit(`login-ip:${ip}`, 30, 60_000)
+  ) {
+    return { error: "Muitas tentativas. Aguarde um minuto." };
+  }
 
   const [user] = await db
     .select()

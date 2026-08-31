@@ -36,6 +36,16 @@ export async function sendMessageAction(
     const [customer] = await db.select().from(customers).where(eq(customers.userId, session.userId)).limit(1);
     if (!customer) return { error: "Perfil de cliente não encontrado." };
 
+    // moderação: prestador suspenso/rejeitado não recebe novas conversas
+    const [targetProvider] = await db
+      .select({ status: providers.status })
+      .from(providers)
+      .where(eq(providers.id, targetProviderId))
+      .limit(1);
+    if (!targetProvider || targetProvider.status !== "APPROVED") {
+      return { error: "Este profissional não está disponível para contato." };
+    }
+
     let [conv] = await db
       .select()
       .from(conversations)

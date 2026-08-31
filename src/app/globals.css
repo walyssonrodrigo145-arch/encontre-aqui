@@ -67,6 +67,15 @@ html {
   @apply mb-1.5 block text-sm font-medium text-slate-700;
 }
 
+/* Input de hora com ícone custom à esquerda — esconde o relógio nativo do navegador
+   (deve vir depois de .input para vencer o padding) */
+.time-input {
+  @apply pl-10 pr-3;
+}
+.time-input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
 .card {
   @apply rounded-2xl border border-[var(--border)] bg-white;
   box-shadow: var(--shadow-card);
@@ -122,7 +131,8 @@ html {
 }
 
 .btn-gradient {
-  @apply text-white;
+  @apply inline-flex cursor-pointer items-center justify-center rounded-xl text-white transition-all duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  min-height: 42px;
   background: var(--gradient-brand);
   box-shadow: 0 8px 22px rgba(109, 74, 255, 0.35);
 }
@@ -194,6 +204,26 @@ html {
 
 .animate-float {
   animation: floatSoft 3.5s ease-in-out infinite;
+}
+
+/* ─── Carrossel automático (marquee) ─── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee var(--marquee-duration, 70s) linear infinite;
+}
+
+.marquee:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }
 
 /* ─── Scrollbars discretas ─── */

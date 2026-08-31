@@ -9,8 +9,10 @@ import {
   services,
   subcategories,
   categories,
+  subscriptionPlans,
 } from "@/lib/schema";
 import { haversineKm } from "@/lib/utils";
+import { brtDayOfWeek, brtHHMM } from "@/lib/tz";
 
 export interface SearchParams {
   query?: string;
@@ -73,11 +75,19 @@ export async function getRankingWeights(): Promise<RankingWeights> {
   };
 }
 
-const planBoostByPlanId = new Map<number, number>([
-  [1, 0], // basico
-  [2, 0.6], // profissional
-  [3, 1], // premium
-]);
+/** Configuração de planos carregada do banco (sem ids hardcoded). */
+let planConfigCache: { byId: Map<number, { searchBoost: number; featured: boolean }>; loadedAt: number } | null = null;
+
+async function getPlanConfig() {
+  // cache de 60s para não consultar em toda busca
+  if (planConfigCache && Date.now() - planConfigCache.loadedAt < 60_000) return planConfigCache.byId;
+  const rows = await db
+    .select({ id: subscriptionPlans.id, searchBoost: subscriptionPlans.searchBoost, featuredBadge: subscriptionPlans.featuredBadge })
+    .from(subscriptionPlans);
+  const byId = new Map(rows.map((p) => [p.id, { searchBoost: p.searchBoost, featured: p.featuredBadge }]));
+  planConfigCache = { byId, loadedAt: Date.now() };
+  return byId;
+}
 
 export async function searchProviders(params: SearchParams): Promise<RankedProvider[]> {
   const w = await getRankingWeights();
@@ -161,10 +171,15 @@ export async function searchProviders(params: SearchParams): Promise<RankedProvi
 
   const today = new Date();
 
-  // prestadores com agenda ativa no dia corrente (uma query para todos)
-  const weekdayNow = today.getDay();
+  // prestadores com agenda ativa AGORA no dia corrente (janela ainda não encerrada)
+  const weekdayNow = brtDayOfWeek(today);
+  const minutesNow = (() => {
+    const hhmm = brtHHMM(today);
+    const [h, m] = hhmm.split(":").map(Number);
+    return h! * 60 + m!;
+  })();
   const availRows = await db
-    .select({ providerId: providerAvailability.providerId })
+    .select({ providerId: providerAvailability.providerId, endTime: providerAvailability.endTime })
     .from(providerAvailability)
     .where(
       and(
@@ -173,7 +188,16 @@ export async function searchProviders(params: SearchParams): Promise<RankedProvi
         inArray(providerAvailability.providerId, providerIds),
       ),
     );
-  const availableTodaySet = new Set(availRows.map((r) => r.providerId));
+  const availableTodaySet = new Set(
+    availRows
+      .filter((r) => {
+        const [eh, em] = r.endTime.split(":").map(Number);
+        return eh! * 60 + em! > minutesNow;
+      })
+      .map((r) => r.providerId),
+  );
+
+  const planConfig = await getPlanConfig();
 
   const ranked: RankedProvider[] = [];
   for (const p of all) {
@@ -215,10 +239,8 @@ export async function searchProviders(params: SearchParams): Promise<RankedProvi
       if (!links.some((l) => catSvcIds.includes(l.serviceId))) continue;
     }
 
-    // disponibilidade hoje (simplificada: tem agenda no dia da semana)
-    if (params.availableToday) {
-      // verificada na renderização via availability cache — trata como verdadeiro se tem agenda
-    }
+    // disponibilidade hoje (real: tem janela ativa ainda aberta agora)
+    if (params.availableToday && !availableTodaySet.has(p.id)) continue;
 
     // ── score ──
     const serviceMatch = matchedLink ? 1 : links.length > 0 ? 0.6 : 0.3;
@@ -234,7 +256,8 @@ export async function searchProviders(params: SearchParams): Promise<RankedProvi
         (links.length > 0 ? 0.25 : 0) +
         (p.ratingCount > 0 ? 0.15 : 0) +
         (p.verificationLevel !== "NONE" ? 0.1 : 0));
-    const planScore = p.planId ? (planBoostByPlanId.get(p.planId) ?? 0) : 0;
+    const planInfo = p.planId ? planConfig.get(p.planId) : undefined;
+    const planScore = planInfo?.searchBoost ?? 0;
 
     const boost = boostByProvider.get(p.id);
     const boostFactor = boost
@@ -268,7 +291,7 @@ export async function searchProviders(params: SearchParams): Promise<RankedProvi
       priceMax: matchedLink?.priceMax ?? null,
       distanceKm,
       boosted: !!boost,
-      featured: p.planId === 3,
+      featured: p.planId != null && (planConfig.get(p.planId)?.featured ?? false),
       availableToday: availableTodaySet.has(p.id),
       score,
       matchedService: matchedServiceName,

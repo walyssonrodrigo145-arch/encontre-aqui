@@ -2,6 +2,7 @@
 
 import { friendlyError } from "@/server/errors";
 import { and, eq, inArray } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   blockedDates,
@@ -205,7 +206,17 @@ export async function saveStep8Action(
 ): Promise<OnboardingState> {
   try {
     const provider = await getMyProvider();
-    const active = availability.filter((a) => a.startTime < a.endTime);
+    const HHMM = /^\d{2}:\d{2}$/;
+    const seenWeekdays = new Set<number>();
+    const active = availability.filter((a) => {
+      if (!Number.isInteger(a.weekday) || a.weekday < 0 || a.weekday > 6) return false;
+      if (!HHMM.test(a.startTime) || !HHMM.test(a.endTime)) return false;
+      if (a.startTime >= a.endTime) return false;
+      if (!Number.isInteger(a.slotMinutes) || a.slotMinutes < 15 || a.slotMinutes > 480) return false;
+      if (seenWeekdays.has(a.weekday)) return false; // uma janela por dia (evita slot ambíguo)
+      seenWeekdays.add(a.weekday);
+      return true;
+    });
     if (active.length === 0) return { error: "Configure ao menos um dia de atendimento." };
 
     await db.delete(providerAvailability).where(eq(providerAvailability.providerId, provider.id));
@@ -235,7 +246,18 @@ export async function addBlockedDateAction(date: string, reason?: string): Promi
   try {
     const provider = await getMyProvider();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Data inválida." };
+    const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10); // hoje em BRT
+    if (date < today) return { error: "Escolha uma data futura." };
+
+    const [existing] = await db
+      .select({ id: blockedDates.id })
+      .from(blockedDates)
+      .where(and(eq(blockedDates.providerId, provider.id), eq(blockedDates.date, date)))
+      .limit(1);
+    if (existing) return { error: "Esta data já está bloqueada." };
+
     await db.insert(blockedDates).values({ providerId: provider.id, date, reason });
+    revalidatePath("/prestador/agenda");
     return { success: "Data bloqueada." };
   } catch (e) {
     return { error: friendlyError(e) };
@@ -246,6 +268,7 @@ export async function removeBlockedDateAction(id: number): Promise<OnboardingSta
   try {
     const provider = await getMyProvider();
     await db.delete(blockedDates).where(and(eq(blockedDates.id, id), eq(blockedDates.providerId, provider.id)));
+    revalidatePath("/prestador/agenda");
     return { success: "Data liberada." };
   } catch (e) {
     return { error: friendlyError(e) };

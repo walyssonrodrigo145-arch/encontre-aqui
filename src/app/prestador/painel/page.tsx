@@ -20,7 +20,8 @@ import {
   users,
 } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
+import { APPOINTMENT_STATUS_LABEL, formatDate, initials } from "@/lib/utils";
+import { brtDateString } from "@/lib/tz";
 import { EmptyState, StatusBadge } from "@/components/ui";
 import { LineChart, BarChart, ChartCard } from "@/components/charts";
 import { FadeIn } from "@/components/motion";
@@ -29,17 +30,18 @@ export const metadata = { title: "Dashboard do prestador" };
 export const dynamic = "force-dynamic";
 
 function last7Days() {
-  const days: { label: string; start: Date; end: Date }[] = [];
+  const days: { label: string; start: Date; end: Date; dateStr: string }[] = [];
+  const now = Date.now();
   for (let i = 6; i >= 0; i--) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - i);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    // início do dia em horário de Brasília (determinístico independente do TZ do servidor)
+    const dateStr = brtDateString(new Date(now - i * 24 * 60 * 60 * 1000));
+    const start = new Date(`${dateStr}T00:00:00-03:00`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
     days.push({
       label: start.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
       start,
       end,
+      dateStr,
     });
   }
   return days;
@@ -52,8 +54,9 @@ export default async function ProviderDashboardPage() {
 
   const days = last7Days();
   const weekStart = days[0]!.start;
-  const lastWeekStart = new Date(weekStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const weekStartStr = days[0]!.dateStr;
+  const lastWeekStartStr = brtDateString(new Date(weekStart.getTime() - 7 * 24 * 60 * 60 * 1000));
+  const todayStartStr = days[days.length - 1]!.dateStr;
 
   const [
     openQuotes,
@@ -74,11 +77,18 @@ export default async function ProviderDashboardPage() {
     db
       .select({ v: sql<number>`coalesce(sum(${providerStats.profileViews}),0)` })
       .from(providerStats)
-      .where(and(eq(providerStats.providerId, provider.id), gte(providerStats.date, weekStart.toISOString().slice(0, 10)))),
+      .where(and(eq(providerStats.providerId, provider.id), gte(providerStats.date, weekStartStr))),
     db
       .select({ v: sql<number>`coalesce(sum(${providerStats.profileViews}),0)` })
       .from(providerStats)
-      .where(and(eq(providerStats.providerId, provider.id), gte(providerStats.date, lastWeekStart.toISOString().slice(0, 10)))),
+      .where(
+        and(
+          eq(providerStats.providerId, provider.id),
+          gte(providerStats.date, lastWeekStartStr),
+          // limite superior: comparar semana COM semana (antes somava 14 dias)
+          sql`${providerStats.date} < ${weekStartStr}`,
+        ),
+      ),
     db
       .select({
         id: appointments.id,
@@ -93,7 +103,7 @@ export default async function ProviderDashboardPage() {
         and(
           eq(appointments.providerId, provider.id),
           ne(appointments.status, "CANCELLED"),
-          gte(appointments.scheduledAt, new Date(new Date().setHours(0, 0, 0, 0))),
+          gte(appointments.scheduledAt, new Date(`${todayStartStr}T00:00:00-03:00`)),
         ),
       )
       .orderBy(appointments.scheduledAt)
@@ -101,7 +111,7 @@ export default async function ProviderDashboardPage() {
     db
       .select({ date: providerStats.date, views: providerStats.profileViews })
       .from(providerStats)
-      .where(and(eq(providerStats.providerId, provider.id), gte(providerStats.date, weekStart.toISOString().slice(0, 10)))),
+      .where(and(eq(providerStats.providerId, provider.id), gte(providerStats.date, weekStartStr))),
   ]);
 
   // séries simples: solicitações e agendamentos por dia (7 dias)
@@ -126,7 +136,7 @@ export default async function ProviderDashboardPage() {
   const viewsLW = Number(viewsLastWeek[0]!.v);
   const viewsDelta = viewsLW > 0 ? Math.round(((viewsW - viewsLW) / viewsLW) * 100) : viewsW > 0 ? 100 : 0;
   const viewsByDate = new Map(statsRows.map((r) => [r.date, Number(r.views)]));
-  const viewsSeries = days.map((d) => viewsByDate.get(d.start.toISOString().slice(0, 10)) ?? 0);
+  const viewsSeries = days.map((d) => viewsByDate.get(d.dateStr) ?? 0);
 
   const stats = [
     {
@@ -144,7 +154,7 @@ export default async function ProviderDashboardPage() {
       color: "bg-emerald-50 text-emerald-600",
     },
     {
-      label: "Agendamentos",
+      label: "Serviços concluídos",
       value: provider.completedJobs,
       delta: null,
       icon: <CalendarDays size={17} />,
@@ -173,7 +183,10 @@ export default async function ProviderDashboardPage() {
       <FadeIn>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {stats.map((s) => (
-            <div key={s.label} className="card card-hover p-4">
+            <div
+              key={s.label}
+              className="card card-hover p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--primary)]/10"
+            >
               <div className="flex items-start justify-between">
                 <p className="text-xs font-medium text-slate-500">{s.label}</p>
                 <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${s.color}`}>
@@ -207,14 +220,16 @@ export default async function ProviderDashboardPage() {
               <ul className="divide-y divide-slate-100">
                 {nextAppointments.map((a) => (
                   <li key={a.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                    <Avatar2 name={a.customerName} />
+                    <span className="font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary-light)] text-sm font-bold text-[var(--primary-dark)]">
+                      {initials(a.customerName)}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-700">{a.customerName}</p>
                       <p className="text-xs text-slate-400">
                         {formatDate(a.scheduledAt)}
                       </p>
                     </div>
-                    <StatusBadge status={a.status} label={statusLabel(a.status)} />
+                    <StatusBadge status={a.status} label={APPOINTMENT_STATUS_LABEL[a.status] ?? a.status} />
                   </li>
                 ))}
               </ul>
@@ -293,25 +308,4 @@ export default async function ProviderDashboardPage() {
       </div>
     </div>
   );
-}
-
-function Avatar2({ name }: { name: string }) {
-  const letters = name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("");
-  return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary-light)] font-display text-sm font-bold text-[var(--primary-dark)]">
-      {letters}
-    </span>
-  );
-}
-
-function statusLabel(status: string) {
-  const map: Record<string, string> = {
-    BOOKING_REQUESTED: "Pendente",
-    BOOKING_CONFIRMED: "Confirmado",
-    ON_THE_WAY: "A caminho",
-    IN_PROGRESS: "Em andamento",
-    COMPLETED: "Concluído",
-    RESCHEDULE_PROPOSED: "Remarcar",
-  };
-  return map[status] ?? status;
 }

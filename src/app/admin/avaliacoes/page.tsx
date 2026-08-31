@@ -5,6 +5,7 @@ import { providers, reports, reviews, users } from "@/lib/schema";
 import { formatDate } from "@/lib/utils";
 import { EmptyState, Stars, StatusBadge } from "@/components/ui";
 import { AdminReviewActions } from "@/components/admin-actions";
+import { AdminPageHeader, AdminStat } from "@/components/admin-ui";
 
 export const metadata = { title: "Admin — Avaliações" };
 
@@ -33,13 +34,18 @@ export default async function AdminReviewsPage() {
       .orderBy(desc(reports.createdAt)),
   ]);
 
+  const avg = rows.length > 0 ? rows.reduce((s, r) => s + r.review.rating, 0) / rows.length : 0;
+  const removed = rows.filter((r) => r.review.status === "REMOVED").length;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Moderação de avaliações</h1>
-        <p className="text-sm text-slate-500">
-          {reportRows.length} denúncia(s) pendente(s) · {rows.length} avaliações recentes
-        </p>
+      <AdminPageHeader title="Moderação de avaliações" subtitle="Denúncias e conteúdo publicado na plataforma" />
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <AdminStat label="Denúncias pendentes" value={reportRows.length} icon={<span className="text-sm font-bold">🚩</span>} tile="bg-red-50 text-red-500" sub="exigem análise" />
+        <AdminStat label="Avaliações recentes" value={rows.length} icon={<span className="text-sm font-bold">★</span>} tile="bg-amber-50 text-amber-600" sub="últimas 50" />
+        <AdminStat label="Média geral" value={avg.toFixed(1).replace(".", ",")} icon={<span className="text-sm font-bold">Ø</span>} tile="bg-sky-50 text-sky-600" sub="das avaliações recentes" />
+        <AdminStat label="Removidas" value={removed} icon={<span className="text-sm font-bold">✕</span>} tile="bg-slate-100 text-slate-500" sub="pela moderação" />
       </div>
 
       {reportRows.length > 0 && (
@@ -66,7 +72,7 @@ export default async function AdminReviewsPage() {
       ) : (
         <ul className="space-y-2">
           {rows.map(({ review, authorName, providerName, providerSlug }) => (
-            <li key={review.id} className="card p-4">
+            <li key={review.id} className="card p-4 transition-all duration-200 hover:shadow-md hover:shadow-[var(--primary)]/5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-slate-700">

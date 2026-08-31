@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { Check, FolderOpen } from "lucide-react";
+import { Check, FolderOpen, UserCog } from "lucide-react";
 import { db } from "@/lib/db";
 import { categories, portfolio, providerServices, providers, services, subcategories } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
@@ -51,7 +52,10 @@ export default async function ProviderServicesPage() {
 
       <FadeIn>
         <section className="card p-5">
-          <SectionTitle sub="Configure preços pelo onboarding ou painel (em breve edição inline)">Catálogo</SectionTitle>
+          <SectionTitle sub="Edite serviços e preços em “Meu perfil”">Catálogo</SectionTitle>
+          <Link href="/prestador/perfil" className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-[var(--primary)] hover:underline">
+            <UserCog size={13} /> Editar serviços e preços
+          </Link>
           {grouped.size === 0 ? (
             <p className="text-sm text-slate-400">Nenhum serviço cadastrado.</p>
           ) : (
@@ -91,17 +95,27 @@ export default async function ProviderServicesPage() {
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] py-10 text-center">
               <FolderOpen size={24} className="mb-2 text-slate-300" />
               <p className="text-sm text-slate-400">Nenhum trabalho adicionado ainda.</p>
-              <p className="mt-1 text-xs text-slate-400">
-                Adicione pelo onboarding — em breve o upload direto chega ao painel.
-              </p>
+              <Link href="/prestador/perfil" className="mt-1 text-xs font-semibold text-[var(--primary)] hover:underline">
+                Adicionar fotos em “Meu perfil” →
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {portfolioRows.map((item) => (
-                <figure key={item.id} className="overflow-hidden rounded-xl border border-[var(--border)]">
-                  <div className="flex h-24 items-center justify-center bg-gradient-to-br from-[var(--primary-soft)] to-slate-100 text-3xl">
-                    📷
-                  </div>
+                <figure key={item.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-slate-50">
+                  {item.mediaType === "IMAGE" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.mediaUrl}
+                      alt={item.description ?? "Trabalho realizado"}
+                      loading="lazy"
+                      className="h-24 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 items-center justify-center bg-gradient-to-br from-[var(--primary-soft)] to-slate-100 text-3xl">
+                      🎬
+                    </div>
+                  )}
                   {item.description && (
                     <figcaption className="p-2 text-xs text-slate-500">{item.description}</figcaption>
                   )}

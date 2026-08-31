@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { customers, providers, quoteResponses, quotes } from "@/lib/schema";
+import { customers, providerServices, providers, quoteResponses, quotes } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
 import { notify } from "@/server/services/notifications";
 import { rateLimit } from "@/server/rate-limit";
@@ -38,6 +38,16 @@ export async function createQuoteAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
   const { providerId, serviceId, description, urgency, desiredDate, addressText } = parsed.data;
+
+  // integridade: o serviço informado deve pertencer ao catálogo DO prestador alvo
+  if (serviceId != null) {
+    const [svc] = await db
+      .select({ id: providerServices.id })
+      .from(providerServices)
+      .where(and(eq(providerServices.providerId, providerId), eq(providerServices.serviceId, serviceId)))
+      .limit(1);
+    if (!svc) return { error: "Este serviço não é oferecido pelo profissional." };
+  }
 
   const [customer] = await db
     .select()
@@ -107,6 +117,9 @@ export async function respondQuoteAction(
     .where(eq(providers.userId, session.userId))
     .limit(1);
   if (!provider) return { error: "Perfil de prestador não encontrado." };
+  if (provider.status !== "APPROVED") {
+    return { error: "Sua conta não está autorizada a responder orçamentos." };
+  }
 
   const [quote] = await db
     .select()

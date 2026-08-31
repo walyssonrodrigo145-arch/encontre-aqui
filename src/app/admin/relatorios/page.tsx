@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+﻿import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   appointments,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/schema";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { SectionTitle } from "@/components/ui";
+import { AdminPageHeader, AdminStat } from "@/components/admin-ui";
 
 export const metadata = { title: "Admin — Relatórios" };
 
@@ -90,33 +91,39 @@ export default async function AdminRelatoriosPage() {
   const cancelPct =
     cancelRate[0]!.total > 0 ? Math.round((Number(cancelRate[0]!.cancelled ?? 0) / Number(cancelRate[0]!.total)) * 100) : 0;
 
-  const cards: [string, string, string][] = [
-    ["Clientes ativos", String(totals[0]!.customers ?? 0), `+${newThisMonth[0]!.c} novos no mês`],
-    ["Prestadores ativos", String(totals[0]!.providers ?? 0), "perfil aprovado"],
-    ["Assinaturas ativas", String(activeSubs[0]!.c), `MRR em evolução`],
-    ["Receita total", formatMoney(revenueAll[0]!.total), `mês: ${formatMoney(revenueMonth[0]!.total)}`],
-    ["Receita de impulsões", formatMoney(boostRevenue[0]!.total), "todas as campanhas"],
-    ["Solicitações (mês)", String(quotesMonth[0]!.c), "orçamentos pedidos"],
-    ["Agendamentos totais", String(apptsTotal[0]!.c), `${apptsCompleted[0]!.c} concluídos`],
-    ["Taxa de cancelamento", `${cancelPct}%`, "de todos os agendamentos"],
+  const highlights: [string, string, string, string][] = [
+    ["Clientes ativos", String(totals[0]!.customers ?? 0), `+${newThisMonth[0]!.c} novos no mês`, "bg-emerald-50 text-emerald-600"],
+    ["Assinaturas ativas", String(activeSubs[0]!.c), "MRR em evolução", "bg-sky-50 text-sky-600"],
+    ["Receita de impulsões", formatMoney(boostRevenue[0]!.total), "todas as campanhas", "bg-amber-50 text-amber-600"],
+    ["Taxa de cancelamento", `${cancelPct}%`, "de todos os agendamentos", "bg-red-50 text-red-500"],
   ];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Relatórios</h1>
-        <p className="text-sm text-slate-500">Indicadores da plataforma — atualizado agora</p>
+      <AdminPageHeader title="Relatórios" subtitle="Indicadores da plataforma — atualizado agora" />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {highlights.map(([label, value, sub, tile]) => (
+          <AdminStat key={label} label={label} value={value} sub={sub} icon={<span className="text-sm font-bold">•</span>} tile={tile} />
+        ))}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map(([label, value, sub]) => (
+        {[
+          ["Prestadores ativos", String(totals[0]!.providers ?? 0)],
+          ["Receita total", formatMoney(revenueAll[0]!.total)],
+          [`Solicitações (mês)`, String(quotesMonth[0]!.c)],
+          ["Agendamentos totais", `${String(apptsTotal[0]!.c)} (${apptsCompleted[0]!.c} concluídos)`],
+        ].map(([label, value]) => (
           <div key={label} className="card p-4">
             <p className="text-xs text-slate-500">{label}</p>
-            <p className="mt-1 text-xl font-extrabold text-slate-900">{value}</p>
-            <p className="text-xs text-slate-400">{sub}</p>
+            <p className="font-display mt-1 text-xl font-extrabold text-slate-900">{value}</p>
           </div>
         ))}
       </div>
+      <p className="-mt-3 text-center text-[11px] text-slate-400">
+        Receita deste mês: {formatMoney(revenueMonth[0]!.total)}
+      </p>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="card p-5">

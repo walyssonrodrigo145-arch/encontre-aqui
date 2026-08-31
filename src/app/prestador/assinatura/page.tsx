@@ -1,5 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { BadgeCheck, Check, CreditCard } from "lucide-react";
+import { and, desc, eq, ne } from "drizzle-orm";
+import { AlertTriangle, BadgeCheck, Check, CreditCard } from "lucide-react";
 import { db } from "@/lib/db";
 import { payments, providers, subscriptionPlans, subscriptions } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
@@ -16,7 +16,7 @@ export default async function AssinaturaPage() {
   const [provider] = await db.select().from(providers).where(eq(providers.userId, session.userId)).limit(1);
   if (!provider) return null;
 
-  const [plans, activeSub, paymentHistory] = await Promise.all([
+  const [plans, activeSub, lastSub, paymentHistory] = await Promise.all([
     db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true)).orderBy(subscriptionPlans.sortOrder),
     db
       .select({
@@ -29,6 +29,16 @@ export default async function AssinaturaPage() {
       .orderBy(desc(subscriptions.id))
       .limit(1),
     db
+      .select({
+        sub: subscriptions,
+        plan: subscriptionPlans,
+      })
+      .from(subscriptions)
+      .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+      .where(and(eq(subscriptions.providerId, provider.id), ne(subscriptions.status, "ACTIVE")))
+      .orderBy(desc(subscriptions.id))
+      .limit(1),
+    db
       .select()
       .from(payments)
       .where(eq(payments.providerId, provider.id))
@@ -37,6 +47,7 @@ export default async function AssinaturaPage() {
   ]);
 
   const current = activeSub[0];
+  const lastInactive = lastSub[0];
 
   return (
     <div className="space-y-6">
@@ -44,6 +55,17 @@ export default async function AssinaturaPage() {
         <h1 className="text-2xl font-extrabold text-slate-900">Assinatura</h1>
         <p className="text-sm text-slate-500">Escolha o plano ideal para o seu negócio</p>
       </div>
+
+      {lastInactive && lastInactive.sub.status === "PAST_DUE" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="flex items-center gap-2 text-sm font-medium text-amber-800">
+            <AlertTriangle size={16} />
+            Seu plano {lastInactive.plan.name} venceu em {formatDate(lastInactive.sub.currentPeriodEnd, false)} — o
+            destaque nas buscas foi removido.
+          </p>
+          <span className="text-xs font-semibold text-amber-700">Assine novamente para reativar 👇</span>
+        </div>
+      )}
 
       {current && (
         <div className="card flex flex-wrap items-center justify-between gap-3 border-[var(--primary)] bg-[var(--primary-light)]/40 p-5">
@@ -53,12 +75,15 @@ export default async function AssinaturaPage() {
               Plano {current.plan.name}
             </p>
             <p className="text-sm text-slate-500">
-              {formatMoney(current.plan.priceCents)}/mês · próxima renovação {formatDate(current.sub.currentPeriodEnd, false)}
+              {formatMoney(current.plan.priceCents)}/mês ·{" "}
+              {current.sub.cancelAtPeriodEnd
+                ? `renovação desativada — ativo até ${formatDate(current.sub.currentPeriodEnd, false)}`
+                : `renova em ${formatDate(current.sub.currentPeriodEnd, false)}`}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <StatusBadge status="ACTIVE" label="Ativo" />
-            <CancelSubButton />
+            <StatusBadge status="ACTIVE" label={current.sub.cancelAtPeriodEnd ? "Ativo (sem renovação)" : "Ativo"} />
+            {!current.sub.cancelAtPeriodEnd && <CancelSubButton />}
           </div>
         </div>
       )}
@@ -81,7 +106,7 @@ export default async function AssinaturaPage() {
             return (
               <div
                 key={plan.id}
-                className={`card relative flex flex-col p-5 ${plan.slug === "profissional" ? "border-[var(--primary)] ring-1 ring-[var(--primary)]" : ""}`}
+                className={`card card-hover relative flex flex-col p-5 ${plan.slug === "profissional" ? "border-[var(--primary)] ring-1 ring-[var(--primary)]" : ""}`}
               >
                 {plan.slug === "profissional" && (
                   <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-[var(--primary)] px-3 py-0.5 text-[10px] font-bold text-white">

@@ -42,9 +42,9 @@ export default async function ProviderReviewsPage() {
         <p className="text-sm text-slate-500">O que os clientes dizem sobre você</p>
       </div>
 
-      <div className="card flex flex-wrap items-center gap-6 p-5">
+      <div className="card flex flex-wrap items-center gap-6 border-[var(--primary)]/15 bg-[var(--primary-soft)]/40 p-5">
         <div className="text-center">
-          <p className="text-4xl font-extrabold text-slate-900">
+          <p className="font-display text-4xl font-extrabold text-slate-900">
             {provider.ratingAvg.toFixed(1).replace(".", ",")}
           </p>
           <Stars rating={provider.ratingAvg} />
@@ -75,7 +75,7 @@ export default async function ProviderReviewsPage() {
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="card p-4">
+            <li key={r.id} className="card p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--primary)]/5">
               <div className="flex items-center gap-2">
                 <Avatar name={r.authorName} size={34} />
                 <div>

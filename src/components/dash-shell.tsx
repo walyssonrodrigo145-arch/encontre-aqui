@@ -5,6 +5,7 @@ import { logoutAction } from "@/server/actions/auth";
 import { Avatar } from "./ui";
 import { BrandLogo } from "./brand-logo";
 import { MobileTabBar, TabBarSpacer } from "./navbar";
+import { DashNav } from "./dash-nav";
 
 export interface DashNavItem {
   href: string;
@@ -15,7 +16,7 @@ export interface DashNavItem {
 
 /**
  * Shell premium dos dashboards (prestador/admin):
- * - Desktop: sidebar escura com pill violeta de navegação + topbar claro
+ * - Desktop: sidebar escura com pill gradiente de navegação + topbar claro
  * - Mobile: topbar gradiente compacto + tab bar inferior
  */
 export function DashShell({
@@ -24,6 +25,7 @@ export function DashShell({
   userSubtitle,
   items,
   actions,
+  footer,
   children,
 }: {
   title: string;
@@ -31,6 +33,8 @@ export function DashShell({
   userSubtitle: string;
   items: DashNavItem[];
   actions?: ReactNode;
+  /** Card opcional acima do "Sair" (ex: upsell de impulsionamento) */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -41,7 +45,7 @@ export function DashShell({
           <BrandLogo variant="dark" />
         </Link>
 
-        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-white/5 p-3">
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
           <Avatar name={userName} size={40} />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{userName}</p>
@@ -49,23 +53,9 @@ export function DashShell({
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/55 transition-all duration-200 hover:bg-white/5 hover:text-white"
-            >
-              <span className="transition-colors group-hover:text-[#a5b4fc]">{item.icon}</span>
-              <span className="flex-1">{item.label}</span>
-              {item.badge != null && item.badge > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--primary)] px-1.5 text-[10px] font-bold text-white">
-                  {item.badge > 99 ? "99+" : item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
-        </nav>
+        <DashNav items={items} />
+
+        {footer && <div className="pt-3">{footer}</div>}
 
         <form action={logoutAction} className="pt-3">
           <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/55 transition hover:bg-red-500/10 hover:text-red-400">

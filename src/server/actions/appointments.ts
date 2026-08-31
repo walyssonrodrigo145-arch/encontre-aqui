@@ -1,14 +1,15 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { appointments, customers, providers, quoteResponses, quotes } from "@/lib/schema";
+import { appointments, customers, providerServices, providers, quoteResponses, quotes } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
-import { isSlotAvailable } from "@/server/services/availability";
+import { resolveSlot } from "@/server/services/availability";
 import { notify } from "@/server/services/notifications";
 import { bookingSchema } from "@/lib/validations";
 import { APPOINTMENT_STATUS_LABEL, formatDate } from "@/lib/utils";
+import { parseBrtLocal } from "@/lib/tz";
 
 export interface BookingState {
   error?: string;
@@ -19,11 +20,29 @@ export interface BookingState {
 const VALID_TRANSITIONS: Record<string, string[]> = {
   BOOKING_REQUESTED: ["BOOKING_CONFIRMED", "CANCELLED", "RESCHEDULE_PROPOSED"],
   RESCHEDULE_PROPOSED: ["BOOKING_CONFIRMED", "CANCELLED"],
-  BOOKING_CONFIRMED: ["ON_THE_WAY", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
+  BOOKING_CONFIRMED: ["ON_THE_WAY", "IN_PROGRESS", "COMPLETED", "CANCELLED", "RESCHEDULE_PROPOSED"],
   ON_THE_WAY: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
   IN_PROGRESS: ["COMPLETED", "CANCELLED"],
   COMPLETED: [],
   CANCELLED: [],
+};
+
+/** Papel autorizado para cada transição (o cliente NÃO avança o fluxo do prestador). */
+const ROLE_ALLOWED: Record<"PROVIDER" | "CUSTOMER", Record<string, string[]>> = {
+  PROVIDER: {
+    BOOKING_REQUESTED: ["BOOKING_CONFIRMED", "CANCELLED", "RESCHEDULE_PROPOSED"],
+    RESCHEDULE_PROPOSED: ["CANCELLED"],
+    BOOKING_CONFIRMED: ["ON_THE_WAY", "IN_PROGRESS", "COMPLETED", "CANCELLED", "RESCHEDULE_PROPOSED"],
+    ON_THE_WAY: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
+    IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+  },
+  CUSTOMER: {
+    BOOKING_REQUESTED: ["CANCELLED"],
+    BOOKING_CONFIRMED: ["CANCELLED"],
+    RESCHEDULE_PROPOSED: ["BOOKING_CONFIRMED", "CANCELLED"],
+    ON_THE_WAY: ["CANCELLED"],
+    IN_PROGRESS: ["CANCELLED"],
+  },
 };
 
 function canTransition(from: string, to: string): boolean {
@@ -50,7 +69,8 @@ export async function requestBookingAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
-  const scheduledAt = new Date(parsed.data.scheduledAt);
+  // "yyyy-mm-ddTHH:mm" enviado pelo formulário é horário de Brasília
+  const scheduledAt = parseBrtLocal(parsed.data.scheduledAt);
   if (Number.isNaN(scheduledAt.getTime())) return { error: "Data inválida." };
   if (scheduledAt.getTime() < Date.now()) return { error: "Escolha uma data futura." };
 
@@ -59,6 +79,32 @@ export async function requestBookingAction(
 
   const [provider] = await db.select().from(providers).where(eq(providers.id, parsed.data.providerId)).limit(1);
   if (!provider || provider.status !== "APPROVED") return { error: "Profissional indisponível." };
+
+  // integridade: o serviço informado deve pertencer ao catálogo DO prestador alvo
+  if (parsed.data.serviceId != null) {
+    const [svc] = await db
+      .select({ id: providerServices.id })
+      .from(providerServices)
+      .where(and(eq(providerServices.providerId, provider.id), eq(providerServices.serviceId, parsed.data.serviceId)))
+      .limit(1);
+    if (!svc) return { error: "Este serviço não é oferecido pelo profissional." };
+  }
+
+  // anti-spam: máximo de solicitações pendentes por cliente
+  const pendingCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [pendingRow] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.customerId, customer.id),
+        eq(appointments.status, "BOOKING_REQUESTED"),
+        gte(appointments.createdAt, pendingCutoff),
+      ),
+    );
+  if (Number(pendingRow?.c ?? 0) >= 5) {
+    return { error: "Você já tem 5 solicitações pendentes. Aguarde respostas ou cancele alguma antes de pedir outra." };
+  }
 
   // IDOR: orçamento/resposta informados devem pertencer a este cliente e prestador
   let quoteId = parsed.data.quoteId;
@@ -87,22 +133,38 @@ export async function requestBookingAction(
     if (!q) return { error: "Orçamento inválido." };
   }
 
-  const available = await isSlotAvailable(provider.id, scheduledAt);
-  if (!available) return { error: "Este horário não está mais disponível. Escolha outro." };
+  // transação: validação do slot + insert são atômicos (evita double-booking)
+  let appointmentId: number | undefined;
+  let slotError: string | undefined;
+  await db.transaction(async (tx) => {
+    const slot = await resolveSlot(tx, provider.id, scheduledAt);
+    if (!slot.ok) {
+      slotError = slot.reason === "data_bloqueada"
+        ? "O profissional bloqueou esta data. Escolha outro dia."
+        : slot.reason === "no_passado"
+          ? "Escolha uma data futura."
+          : "Este horário não está mais disponível. Escolha outro.";
+      return;
+    }
+    const [created] = await tx
+      .insert(appointments)
+      .values({
+        customerId: customer.id,
+        providerId: provider.id,
+        quoteId,
+        quoteResponseId,
+        serviceId: parsed.data.serviceId,
+        scheduledAt,
+        durationMinutes: slot.slotMinutes,
+        addressText: parsed.data.addressText,
+        status: "BOOKING_REQUESTED",
+      })
+      .returning({ id: appointments.id });
+    appointmentId = created?.id;
+  });
 
-  const [appointment] = await db
-    .insert(appointments)
-    .values({
-      customerId: customer.id,
-      providerId: provider.id,
-      quoteId,
-      quoteResponseId,
-      serviceId: parsed.data.serviceId,
-      scheduledAt,
-      addressText: parsed.data.addressText,
-      status: "BOOKING_REQUESTED",
-    })
-    .returning();
+  if (slotError) return { error: slotError };
+  if (!appointmentId) return { error: "Não foi possível agendar. Tente novamente." };
 
   await notify({
     userId: provider.userId,
@@ -111,13 +173,13 @@ export async function requestBookingAction(
     body: `${formatDate(scheduledAt)} — aguarde sua confirmação`,
     link: "/prestador/agenda",
     referenceType: "APPOINTMENT",
-    referenceId: appointment!.id,
+    referenceId: appointmentId,
   });
 
   revalidatePath("/app/agendamentos");
   return {
     success: `Solicitação enviada para ${formatDate(scheduledAt)}! Você será notificado na confirmação.`,
-    appointmentId: appointment!.id,
+    appointmentId,
   };
 }
 
@@ -129,79 +191,134 @@ export async function updateAppointmentStatusAction(
   let session = await requireRole("PROVIDER").catch(() => null);
   if (!session) session = await requireRole("CUSTOMER").catch(() => null);
   if (!session) return { error: "Acesso negado." };
+  const role = session.role as "PROVIDER" | "CUSTOMER";
 
-  const [appointment] = await db.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
-  if (!appointment) return { error: "Agendamento não encontrado." };
-
-  // autorização: só as partes envolvidas
-  let authorized = false;
+  let txError: string | null = null;
   let counterpartUserId: number | null = null;
-  if (session.role === "PROVIDER") {
-    const [p] = await db.select({ id: providers.id, userId: providers.userId }).from(providers).where(eq(providers.userId, session.userId)).limit(1);
-    authorized = !!p && p.id === appointment.providerId;
-    const [c] = await db.select({ userId: customers.userId }).from(customers).where(eq(customers.id, appointment.customerId)).limit(1);
-    counterpartUserId = c?.userId ?? null;
-  } else {
-    const [c] = await db.select({ id: customers.id, userId: customers.userId }).from(customers).where(eq(customers.userId, session.userId)).limit(1);
-    authorized = !!c && c.id === appointment.customerId;
-    const [p] = await db.select({ userId: providers.userId }).from(providers).where(eq(providers.id, appointment.providerId)).limit(1);
-    counterpartUserId = p?.userId ?? null;
-  }
-  if (!authorized) return { error: "Acesso negado." };
+  let notifyBody = "";
+  let providerUserId: number | null = null;
+  let providerIdRef: number | null = null;
 
-  if (!canTransition(appointment.status, newStatus)) {
-    return { error: `Transição inválida de ${appointment.status} para ${newStatus}.` };
-  }
+  txError = await db
+    .transaction(async (tx) => {
+      const [appointment] = await tx.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
+      if (!appointment) return "Agendamento não encontrado.";
 
-  if (newStatus === "BOOKING_CONFIRMED") {
-    // valida novamente o slot no momento da confirmação (excluindo o próprio agendamento)
-    const stillAvailable = await isSlotAvailable(
-      appointment.providerId,
-      appointment.scheduledAt,
-      appointment.id,
-    );
-    if (!stillAvailable) {
-      return { error: "Este horário já foi ocupado por outro cliente." };
-    }
-  }
+      const [providerRow] = await tx
+        .select({ id: providers.id, userId: providers.userId, status: providers.status })
+        .from(providers)
+        .where(eq(providers.id, appointment.providerId))
+        .limit(1);
+      const [customerRow] = await tx
+        .select({ id: customers.id, userId: customers.userId })
+        .from(customers)
+        .where(eq(customers.id, appointment.customerId))
+        .limit(1);
 
-  await db
-    .update(appointments)
-    .set({
-      status: newStatus as typeof appointments.$inferInsert.status,
-      proposedAt: options?.proposedAt,
-      cancellationReason: newStatus === "CANCELLED" ? (options?.reason ?? "Sem justificativa") : null,
-      cancelledBy: newStatus === "CANCELLED" ? session.role : null,
-      updatedAt: new Date(),
+      // autorização: só as partes envolvidas
+      if (role === "PROVIDER") {
+        const [mine] = await tx
+          .select({ id: providers.id })
+          .from(providers)
+          .where(eq(providers.userId, session.userId))
+          .limit(1);
+        if (!mine || mine.id !== appointment.providerId) return "Acesso negado.";
+        if (providerRow?.status !== "APPROVED") {
+          return "Sua conta não está autorizada a gerenciar agendamentos.";
+        }
+      } else {
+        const [mine] = await tx
+          .select({ id: customers.id })
+          .from(customers)
+          .where(eq(customers.userId, session.userId))
+          .limit(1);
+        if (!mine || mine.id !== appointment.customerId) return "Acesso negado.";
+      }
+
+      // máquina de estados + papel permitido
+      if (!canTransition(appointment.status, newStatus)) {
+        return `Transição inválida de ${appointment.status} para ${newStatus}.`;
+      }
+      const allowed = ROLE_ALLOWED[role][appointment.status] ?? [];
+      if (!allowed.includes(newStatus)) {
+        return role === "CUSTOMER"
+          ? "Somente o profissional pode executar esta ação."
+          : "Ação não permitida para este status.";
+      }
+
+      let newScheduledAt = appointment.scheduledAt;
+      notifyBody = options?.reason ?? formatDate(appointment.scheduledAt);
+
+      // cliente aceitando remarcação: a nova data proposta passa a valer
+      if (appointment.status === "RESCHEDULE_PROPOSED" && newStatus === "BOOKING_CONFIRMED") {
+        if (!appointment.proposedAt) return "Proposta de horário inválida.";
+        if (appointment.proposedAt.getTime() <= Date.now()) {
+          return "O horário proposto já passou. Peça uma nova remarcação.";
+        }
+        newScheduledAt = appointment.proposedAt;
+        notifyBody = formatDate(appointment.proposedAt);
+      }
+
+      // prestador propondo remarcação: exige data futura
+      if (newStatus === "RESCHEDULE_PROPOSED") {
+        if (!options?.proposedAt || Number.isNaN(options.proposedAt.getTime())) {
+          return "Informe a nova data.";
+        }
+        if (options.proposedAt.getTime() <= Date.now()) return "A nova data deve ser futura.";
+        notifyBody = formatDate(options.proposedAt);
+      }
+
+      // confirmação: revalida o slot no momento da confirmação (excluindo o próprio)
+      if (newStatus === "BOOKING_CONFIRMED") {
+        const slot = await resolveSlot(tx, appointment.providerId, newScheduledAt, appointment.id);
+        if (!slot.ok) {
+          return slot.reason === "no_passado"
+            ? "Esta data já passou."
+            : "Este horário já foi ocupado ou saiu da sua agenda.";
+        }
+      }
+
+      await tx
+        .update(appointments)
+        .set({
+          status: newStatus as typeof appointments.$inferInsert.status,
+          scheduledAt: newScheduledAt,
+          proposedAt: newStatus === "RESCHEDULE_PROPOSED" ? (options?.proposedAt ?? null) : null,
+          cancellationReason: newStatus === "CANCELLED" ? (options?.reason ?? "Sem justificativa") : null,
+          cancelledBy: newStatus === "CANCELLED" ? role : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(appointments.id, appointmentId));
+
+      counterpartUserId =
+        role === "PROVIDER" ? (customerRow?.userId ?? null) : (providerRow?.userId ?? null);
+      providerUserId = providerRow?.userId ?? null;
+      providerIdRef = providerRow?.id ?? null;
+      return null;
     })
-    .where(eq(appointments.id, appointmentId));
+    .catch((e) => (e instanceof Error ? e.message : "Erro inesperado"));
+
+  if (txError) return { error: txError };
 
   if (counterpartUserId) {
     await notify({
       userId: counterpartUserId,
       type: `APPT_${newStatus}`,
       title: statusNotifyTitle(newStatus),
-      body:
-        newStatus === "CANCELLED"
-          ? `Motivo: ${options?.reason ?? "não informado"}`
-          : formatDate(appointment.scheduledAt),
-      link: session.role === "PROVIDER" ? "/app/agendamentos" : "/prestador/agenda",
+      body: notifyBody,
+      link: role === "PROVIDER" ? "/app/agendamentos" : "/prestador/agenda",
       referenceType: "APPOINTMENT",
       referenceId: appointmentId,
     });
   }
 
-  // incrementa contador de serviços concluídos
-  if (newStatus === "COMPLETED") {
-    const [p] = await db
-      .select({ completedJobs: providers.completedJobs })
-      .from(providers)
-      .where(eq(providers.id, appointment.providerId))
-      .limit(1);
+  // incrementa contador de serviços concluídos (atômico)
+  if (newStatus === "COMPLETED" && providerIdRef != null) {
     await db
       .update(providers)
-      .set({ completedJobs: (p?.completedJobs ?? 0) + 1 })
-      .where(eq(providers.id, appointment.providerId));
+      .set({ completedJobs: sql`${providers.completedJobs} + 1` })
+      .where(eq(providers.id, providerIdRef));
+    void providerUserId;
   }
 
   revalidatePath("/prestador/agenda");

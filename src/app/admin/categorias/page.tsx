@@ -2,6 +2,7 @@ import { asc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, services, subcategories } from "@/lib/schema";
 import { ToggleCategory } from "@/components/admin-forms";
+import { AdminPageHeader, AdminStat } from "@/components/admin-ui";
 
 export const metadata = { title: "Admin — Categorias" };
 
@@ -14,12 +15,18 @@ export default async function AdminCategoriasPage() {
     .groupBy(services.subcategoryId);
 
   const svcCountMap = new Map(svcCounts.map((s) => [s.subcategoryId, s.c]));
+  const totalSubs = subRows.length;
+  const totalServices = [...svcCountMap.values()].reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Categorias e serviços</h1>
-        <p className="text-sm text-slate-500">Estrutura do catálogo da plataforma</p>
+      <AdminPageHeader title="Categorias e serviços" subtitle="Estrutura do catálogo da plataforma" />
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <AdminStat label="Categorias" value={cats.length} icon={<span className="text-sm font-bold">C</span>} sub={`${cats.filter((c) => c.isActive).length} ativas`} />
+        <AdminStat label="Inativas" value={cats.filter((c) => !c.isActive).length} icon={<span className="text-sm font-bold">✕</span>} tile="bg-amber-50 text-amber-600" sub="ocultas da home" />
+        <AdminStat label="Especialidades" value={totalSubs} icon={<span className="text-sm font-bold">S</span>} tile="bg-sky-50 text-sky-600" sub="subcategorias" />
+        <AdminStat label="Serviços" value={totalServices} icon={<span className="text-sm font-bold">⚙</span>} tile="bg-emerald-50 text-emerald-600" sub="no catálogo" />
       </div>
 
       <div className="space-y-4">
@@ -27,11 +34,12 @@ export default async function AdminCategoriasPage() {
           const subs = subRows.filter((s) => s.categoryId === cat.id);
           const totalServices = subs.reduce((acc, s) => acc + (svcCountMap.get(s.id) ?? 0), 0);
           return (
-            <div key={cat.id} className="card p-4">
+            <div key={cat.id} className={`card p-4 transition-all duration-200 hover:shadow-md hover:shadow-[var(--primary)]/5 ${cat.isActive ? "" : "opacity-60"}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{cat.icon === "hammer" ? "🔨" : cat.icon === "home" ? "🏠" : cat.icon === "laptop" ? "💻" : cat.icon === "car" ? "🔧" : cat.icon === "camera" ? "📷" : cat.icon === "graduation-cap" ? "🎓" : cat.icon === "heart-pulse" ? "❤️" : "🛠️"}</span>
                   <h3 className="font-bold text-slate-800">{cat.name}</h3>
+                  {!cat.isActive && <span className="badge rounded-full bg-slate-100 text-slate-500">Inativa</span>}
                   <span className="text-xs text-slate-400">
                     {subs.length} especialidades · {totalServices} serviços
                   </span>

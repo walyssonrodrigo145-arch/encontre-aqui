@@ -1,13 +1,13 @@
-"use server";
+﻿"use server";
 
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { notifications } from "@/lib/schema";
-import { getSession } from "@/lib/auth";
+import { getVerifiedSession } from "@/lib/auth";
 
 export async function unreadCountAction(): Promise<number> {
-  const session = await getSession();
+  const session = await getVerifiedSession();
   if (!session) return 0;
   const rows = await db
     .select({ id: notifications.id })
@@ -17,7 +17,7 @@ export async function unreadCountAction(): Promise<number> {
 }
 
 export async function markAllReadAction() {
-  const session = await getSession();
+  const session = await getVerifiedSession();
   if (!session) return;
   await db
     .update(notifications)
@@ -27,7 +27,7 @@ export async function markAllReadAction() {
 }
 
 export async function markReadAction(notificationId: number) {
-  const session = await getSession();
+  const session = await getVerifiedSession();
   if (!session) return;
   await db
     .update(notifications)

@@ -77,7 +77,10 @@ export async function Navbar() {
               <Link href="/entrar" className="btn-outline px-5">
                 Entrar
               </Link>
-              <Link href="/cadastro?role=PROVIDER" className="btn-gradient inline-flex items-center gap-2 px-5">
+              <Link
+                href="/cadastro?role=PROVIDER"
+                className="btn-gradient items-center gap-2 px-5 py-2.5 text-sm font-semibold"
+              >
                 Quero ser prestador <ArrowRight size={15} />
               </Link>
             </>

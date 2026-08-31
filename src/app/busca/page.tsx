@@ -133,7 +133,7 @@ export default async function BuscaPage({ searchParams }: Props) {
         {/* Chips de filtro */}
         <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:mt-4 md:flex-wrap md:px-0">
           <SlidersHorizontal size={15} className="mt-2 hidden shrink-0 text-slate-400 md:block" />
-          <Link href={buildHref({})} className={chip(!categoryId)}>
+          <Link href={buildHref({ categoria: undefined })} className={chip(!categoryId)}>
             Todos
           </Link>
           {cats.map((c) => (

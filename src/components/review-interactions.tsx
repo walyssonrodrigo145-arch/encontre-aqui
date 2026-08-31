@@ -65,29 +65,65 @@ export function ProviderReplyForm({ reviewId }: { reviewId: number }) {
   );
 }
 
+const REPORT_REASONS = [
+  "Conteúdo ofensivo ou abusivo",
+  "Informação falsa ou enganosa",
+  "Spam ou publicidade",
+  "Não corresponde a um serviço real",
+  "Outro motivo",
+];
+
 export function ReportReviewButton({ reviewId }: { reviewId: number }) {
   const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
   const [reported, setReported] = useState(false);
+  const [error, setError] = useState<string>();
 
   if (reported) {
     return <span className="text-xs text-slate-400">Denúncia enviada para análise.</span>;
   }
 
+  if (!open) {
+    return (
+      <button
+        className="text-xs font-medium text-slate-400 transition hover:text-[var(--danger)]"
+        onClick={() => setOpen(true)}
+      >
+        <Flag size={11} className="mr-0.5 inline" />
+        Denunciar
+      </button>
+    );
+  }
+
   return (
-    <button
-      disabled={pending}
-      className="text-xs font-medium text-slate-400 transition hover:text-[var(--danger)]"
-      onClick={() => {
-        const reason = prompt("Descreva o motivo da denúncia desta avaliação:");
-        if (!reason || !reason.trim()) return;
-        startTransition(async () => {
-          await reportReviewAction(reviewId, reason.trim());
-          setReported(true);
-        });
-      }}
-    >
-      <Flag size={11} className="mr-0.5 inline" />
-      {pending ? "Enviando..." : "Denunciar"}
-    </button>
+    <div className="mt-2 flex flex-wrap gap-1.5 rounded-xl bg-slate-50 p-2.5">
+      {REPORT_REASONS.map((reason) => (
+        <button
+          key={reason}
+          disabled={pending}
+          className="rounded-full border border-[var(--border)] bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-50"
+          onClick={() =>
+            startTransition(async () => {
+              const res = await reportReviewAction(reviewId, reason);
+              if (res?.error) setError(res.error);
+              else {
+                setError(undefined);
+                setReported(true);
+              }
+            })
+          }
+        >
+          {pending ? "Enviando..." : reason}
+        </button>
+      ))}
+      {error && (
+        <p className="flex w-full items-center gap-1 text-xs text-[var(--danger)]">
+          <AlertCircle size={12} /> {error}
+        </p>
+      )}
+      <button onClick={() => setOpen(false)} className="btn-ghost py-1 text-[11px]">
+        Voltar
+      </button>
+    </div>
   );
 }

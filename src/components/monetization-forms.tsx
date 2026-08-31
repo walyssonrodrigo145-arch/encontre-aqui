@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { AlertCircle, CheckCircle2, Rocket, X } from "lucide-react";
 import { cancelSubscriptionAction, createBoostAction, subscribeAction, type MonetizationState } from "@/server/actions/monetization";
+import { BOOST_DAYS, BOOST_CONFIG, boostPriceCents } from "@/lib/boost";
 
 export function SubscribeButtons({ planId }: { planId: number }) {
   const [state, action, pending] = useActionState<MonetizationState | undefined, FormData>(subscribeAction, undefined);
@@ -66,21 +67,25 @@ export function CancelSubButton() {
   );
 }
 
-const DURATIONS = [1, 3, 7, 15, 30];
-const TYPES = [
-  { value: "BASIC", label: "Básico", desc: "Mais exposição nas buscas", icon: "🚀" },
-  { value: "REGIONAL", label: "Regional", desc: "Destaque na sua cidade/região", icon: "📍" },
-  { value: "FEATURED", label: "Destaque", desc: "Máxima exposição + áreas especiais", icon: "⭐" },
-];
+const DURATIONS = [...BOOST_DAYS];
+const TYPES = (Object.keys(BOOST_CONFIG) as (keyof typeof BOOST_CONFIG)[]).map((value) => ({
+  value,
+  label: BOOST_CONFIG[value]!.label,
+  desc:
+    value === "BASIC"
+      ? "Mais exposição nas buscas"
+      : value === "REGIONAL"
+        ? "Destaque na sua cidade/região"
+        : "Máxima exposição + áreas especiais",
+  icon: value === "BASIC" ? "🚀" : value === "REGIONAL" ? "📍" : "⭐",
+}));
 
 export function BoostForm() {
   const [state, action, pending] = useActionState<MonetizationState | undefined, FormData>(createBoostAction, undefined);
   const [type, setType] = useState("BASIC");
   const [days, setDays] = useState(7);
 
-  const basePerDay: Record<number, number> = { 1: 990, 3: 2490, 7: 4990, 15: 8990, 30: 14900 };
-  const typeFactor = type === "BASIC" ? 1 : type === "REGIONAL" ? 1.8 : 2.5;
-  const price = ((basePerDay[days] ?? 4990) * typeFactor) / 100;
+  const price = boostPriceCents(type as "BASIC" | "REGIONAL" | "FEATURED", days) / 100;
 
   if (state?.success) {
     return (

@@ -95,13 +95,11 @@ function PhoneMockup() {
         <div className="overflow-hidden rounded-[2.35rem] bg-[#0d1226] px-4 pb-5 pt-3">
           <span className="mx-auto block h-5 w-20 rounded-full bg-black/70" aria-hidden />
           <div className="relative mx-auto mt-4 w-[74px]">
-            <MiniFace
-              bg="#dbeafe"
-              hair="#4a3222"
-              skin="#efb68f"
-              shirt="#2f80ed"
-              beard
-              className="h-[74px] w-[74px]"
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/avatars/joao-eletricista.jpg"
+              alt="João Eletricista — perfil de prestador"
+              className="h-[74px] w-[74px] rounded-full object-cover"
             />
             <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#0d1226]">
               <BadgeCheck size={24} className="fill-[var(--info)] text-white" />

@@ -41,17 +41,21 @@ export const users = sqliteTable(
   ],
 );
 
-export const customers = sqliteTable("customers", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  city: text("city"),
-  state: text("state"),
-  addressText: text("address_text"),
-  lat: real("lat"),
-  lng: real("lng"),
-});
+export const customers = sqliteTable(
+  "customers",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    city: text("city"),
+    state: text("state"),
+    addressText: text("address_text"),
+    lat: real("lat"),
+    lng: real("lng"),
+  },
+  (t) => [index("customers_user_idx").on(t.userId)],
+);
 
 // ───────────────────────────── PRESTADOR ─────────────────────────────
 
@@ -102,6 +106,7 @@ export const providers = sqliteTable(
   },
   (t) => [
     uniqueIndex("providers_slug_uq").on(t.slug),
+    index("providers_user_idx").on(t.userId),
     index("providers_status_rating_idx").on(t.status, t.ratingAvg),
     index("providers_city_idx").on(t.city),
   ],
@@ -118,14 +123,18 @@ export const categories = sqliteTable("categories", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
-export const subcategories = sqliteTable("subcategories", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  categoryId: integer("category_id")
-    .notNull()
-    .references(() => categories.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  slug: text("slug").notNull(),
-});
+export const subcategories = sqliteTable(
+  "subcategories",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+  },
+  (t) => [index("subcategories_category_idx").on(t.categoryId)],
+);
 
 export const services = sqliteTable("services", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -186,14 +195,18 @@ export const providerAvailability = sqliteTable(
   (t) => [index("availability_provider_idx").on(t.providerId, t.weekday)],
 );
 
-export const blockedDates = sqliteTable("blocked_dates", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  providerId: integer("provider_id")
-    .notNull()
-    .references(() => providers.id, { onDelete: "cascade" }),
-  date: text("date").notNull(), // "2026-09-01"
-  reason: text("reason"),
-});
+export const blockedDates = sqliteTable(
+  "blocked_dates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    providerId: integer("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // "2026-09-01"
+    reason: text("reason"),
+  },
+  (t) => [index("blocked_provider_date_idx").on(t.providerId, t.date)],
+);
 
 // ───────────────────────────── PORTFÓLIO ─────────────────────────────
 
@@ -319,7 +332,7 @@ export const appointments = sqliteTable(
   },
   (t) => [
     index("appt_provider_time_idx").on(t.providerId, t.scheduledAt),
-    index("appt_customer_idx").on(t.customerId),
+    index("appt_customer_time_idx").on(t.customerId, t.scheduledAt),
   ],
 );
 
@@ -452,6 +465,9 @@ export const subscriptions = sqliteTable(
       .default("PENDING_PAYMENT"),
     currentPeriodStart: ts("current_period_start").notNull().$defaultFn(now),
     currentPeriodEnd: ts("current_period_end").notNull(),
+    cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" })
+      .notNull()
+      .default(false),
     canceledAt: ts("canceled_at"),
     createdAt: ts("created_at").notNull().$defaultFn(now),
   },

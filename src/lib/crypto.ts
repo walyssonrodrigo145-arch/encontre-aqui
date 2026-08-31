@@ -7,7 +7,13 @@ import { createHmac } from "crypto";
  */
 export function hashDocument(document: string): string {
   const digits = document.replace(/\D/g, "");
-  const key = process.env.AUTH_SECRET ?? "dev-secret-change-me-in-production-0123456789";
+  let key = process.env.AUTH_SECRET;
+  if (!key) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET é obrigatório em produção.");
+    }
+    key = "dev-secret-change-me-in-production-0123456789";
+  }
   const mac = createHmac("sha256", key).update(digits).digest("hex");
   return `hmac:${mac}`;
 }

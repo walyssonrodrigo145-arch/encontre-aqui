@@ -420,10 +420,12 @@ export function LoginForm() {
           </Link>
         </p>
       </form>
-      <div className="mt-6 rounded-xl bg-[var(--primary-soft)] p-3.5 text-center text-xs text-slate-500">
-        <p className="font-semibold text-[var(--primary-dark)]">Contas de demonstração (senha: 123456)</p>
-        <p className="mt-0.5">cliente@email.com · joao@demo.com · admin@encontreaqui.com</p>
-      </div>
+      {process.env.NODE_ENV !== "production" && (
+        <div className="mt-6 rounded-xl bg-[var(--primary-soft)] p-3.5 text-center text-xs text-slate-500">
+          <p className="font-semibold text-[var(--primary-dark)]">Contas de demonstração (senha: 123456)</p>
+          <p className="mt-0.5">cliente@email.com · joao@demo.com · admin@encontreaqui.com</p>
+        </div>
+      )}
     </div>
   );
 }
