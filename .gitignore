@@ -42,6 +42,7 @@ next-env.d.ts
 
 data/
 *.db
+!backup/database.db
 
 # tokens gerados localmente
 tokens.json

@@ -8,8 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
+      "db:push": "drizzle-kit push",
+      "db:studio": "drizzle-kit studio",
+      "db:snapshot": "node scripts/db-snapshot.mjs",
+      "db:restore": "node scripts/db-restore.mjs",
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
