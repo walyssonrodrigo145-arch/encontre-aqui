@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { confirmPayment } from "@/server/services/payments";
+import { confirmPayment, handleAsaasPaymentCreated, markAsaasPaymentState } from "@/server/services/payments";
 
 /** Comparação de token em tempo constante. */
 function tokenMatches(provided: string, secret: string): boolean {
@@ -29,17 +29,6 @@ export async function POST(req: NextRequest) {
   const event = body.event ?? body.type;
   const paymentId = body.payment?.id ?? body.gatewayPaymentId ?? body.id;
 
-  const isConfirmation =
-    paymentId &&
-    (event === "PAYMENT_CONFIRMED" ||
-      event === "PAYMENT_RECEIVED" ||
-      event === "payment.confirmed" ||
-      event === "payment.succeeded");
-
-  if (!isConfirmation) {
-    return NextResponse.json({ received: true, ignored: true });
-  }
-
   // valor informado pelo gateway (em reais no Asaas) → centavos
   let expectedCents: number | undefined;
   const rawValue = body.payment?.value ?? body.value;
@@ -47,16 +36,44 @@ export async function POST(req: NextRequest) {
     expectedCents = Math.round(rawValue * 100);
   }
 
+  const asaasSubscriptionId = body.payment?.subscription ?? null;
+
   try {
-    const result = await confirmPayment(String(paymentId), expectedCents);
-    if (!result.ok) {
-      if (result.reason === "amount_mismatch") {
-        // valor divergente — não confirma e sinaliza para investigação
-        return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
-      }
-      return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+    // renovação: cobrança do ciclo seguinte criada pelo Asaas
+    if (paymentId && event === "PAYMENT_CREATED") {
+      await handleAsaasPaymentCreated(String(paymentId), asaasSubscriptionId, expectedCents);
+      return NextResponse.json({ received: true });
     }
-    return NextResponse.json({ received: true });
+
+    if (!paymentId) return NextResponse.json({ received: true, ignored: true });
+
+    if (
+      event === "PAYMENT_CONFIRMED" ||
+      event === "PAYMENT_RECEIVED" ||
+      event === "payment.confirmed" ||
+      event === "payment.succeeded"
+    ) {
+      const result = await confirmPayment(String(paymentId), expectedCents);
+      if (!result.ok) {
+        if (result.reason === "amount_mismatch") {
+          return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+        }
+        return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+      }
+      return NextResponse.json({ received: true });
+    }
+
+    if (event === "PAYMENT_OVERDUE" || event === "payment.overdue") {
+      await markAsaasPaymentState(String(paymentId), "FAILED");
+      return NextResponse.json({ received: true });
+    }
+
+    if (event === "PAYMENT_DELETED" || event === "payment.deleted") {
+      await markAsaasPaymentState(String(paymentId), "FAILED");
+      return NextResponse.json({ received: true });
+    }
+
+    return NextResponse.json({ received: true, ignored: true });
   } catch {
     // 500 força o gateway a reenviar o webhook (retry)
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

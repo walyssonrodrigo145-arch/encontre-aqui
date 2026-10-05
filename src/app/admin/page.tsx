@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
-import { ClipboardList, CreditCard, TrendingUp, Users } from "lucide-react";
+import {
+  Briefcase,
+  CalendarCheck,
+  CircleDollarSign,
+  ClipboardList,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import {
   appointments,
@@ -16,6 +23,7 @@ import { formatDate, formatMoney } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui";
 import { LineChart, DonutChart, ChartCard } from "@/components/charts";
 import { FadeIn } from "@/components/motion";
+import { AdminPageHeader } from "@/components/admin-ui";
 
 export const metadata = { title: "Painel administrativo" };
 export const dynamic = "force-dynamic";
@@ -128,51 +136,62 @@ export default async function AdminDashboardPage() {
       label: "Prestadores ativos",
       value: Number(activeProviders[0]!.c).toLocaleString("pt-BR"),
       delta: weeklyDelta(Number(newProvidersThisWeek[0]!.c), Number(newProvidersLastWeek[0]!.c)),
-      icon: <Users size={16} />,
+      icon: <Briefcase size={18} />,
+      tile: "bg-violet-50 text-violet-600",
     },
     {
       label: "Clientes cadastrados",
       value: Number(activeCustomers[0]!.c).toLocaleString("pt-BR"),
       delta: weeklyDelta(Number(newCustomersThisWeek[0]!.c), Number(newCustomersLastWeek[0]!.c)),
-      icon: <Users size={16} />,
+      icon: <Users size={18} />,
+      tile: "bg-emerald-50 text-emerald-600",
     },
     {
       label: "Solicitações no mês",
       value: Number(quotesMonth[0]!.c).toLocaleString("pt-BR"),
       delta: `${quotesSeries.reduce((a, b) => a + b, 0)} nos últimos 7 dias`,
-      icon: <ClipboardList size={16} />,
+      icon: <ClipboardList size={18} />,
+      tile: "bg-sky-50 text-sky-600",
     },
     {
       label: "Agendamentos no mês",
       value: Number(apptsMonth[0]!.c).toLocaleString("pt-BR"),
       delta: null as string | null,
-      icon: <CreditCard size={16} />,
+      icon: <CalendarCheck size={18} />,
+      tile: "bg-amber-50 text-amber-600",
     },
     {
       label: "Faturamento",
       value: formatMoney(Number(revenueAll[0]!.total)),
       delta: `${formatMoney(Number(revenueMonth[0]!.total))} este mês`,
-      icon: <CreditCard size={16} />,
+      icon: <CircleDollarSign size={18} />,
+      tile: "bg-slate-100 text-slate-600",
     },
   ];
 
   return (
     <div className="space-y-5">
+      <AdminPageHeader title="Resumo geral" subtitle="Visão consolidada da plataforma" />
+
       {/* Stat cards grandes */}
       <FadeIn>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
           {stats.map((s) => (
-            <div key={s.label} className="card card-hover p-4 md:p-5">
-              <div className="flex items-start justify-between gap-2">
+            <div
+              key={s.label}
+              className="card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--primary)]/10"
+            >
+              <div className="flex items-start justify-between gap-2 p-4 pb-0">
                 <p className="text-xs font-medium text-slate-500">{s.label}</p>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.tile}`}>
                   {s.icon}
                 </span>
               </div>
-              <p className="font-display mt-1.5 truncate text-xl font-extrabold text-slate-900 md:text-2xl xl:text-3xl">
+              <p className="font-display mt-1.5 truncate px-4 text-2xl font-extrabold text-slate-900">
                 {s.value}
               </p>
-              {s.delta && <p className="mt-1 truncate text-[11px] font-semibold text-emerald-600">{s.delta}</p>}
+              {s.delta && <p className="mt-1 truncate px-4 pb-4 text-[11px] font-semibold text-emerald-600">{s.delta}</p>}
+              {!s.delta && <div className="pb-4" />}
             </div>
           ))}
         </div>

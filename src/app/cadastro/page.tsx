@@ -18,7 +18,7 @@ export default async function CadastroPage({
   const defaultRole = sp.role === "PROVIDER" ? "PROVIDER" : "CUSTOMER";
   return (
     <AuthShell>
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-xl">
         <RegisterForm defaultRole={defaultRole} />
       </div>
     </AuthShell>

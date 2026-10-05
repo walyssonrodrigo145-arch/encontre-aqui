@@ -11,6 +11,7 @@ import {
   Shield,
   Sparkles,
   User,
+  Wallet,
 } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -55,14 +56,15 @@ export default async function PerfilPage() {
           { href: "/app/favoritos", label: "Favoritos", icon: <Heart size={17} /> },
           { href: "/mensagens", label: "Mensagens", icon: <ArrowRight size={17} /> },
         ]
-      : session.role === "PROVIDER"
-        ? [
-            { href: "/prestador/painel", label: "Dashboard", icon: <User size={17} /> },
-            { href: "/prestador/assinatura", label: `Assinatura${plan ? ` · ${plan}` : ""}`, icon: <CreditCard size={17} /> },
-            { href: "/prestador/impulsionar", label: "Impulsionar perfil", icon: <Sparkles size={17} /> },
-            { href: "/prestador/servicos", label: "Meus serviços", icon: <ArrowRight size={17} /> },
-            { href: "/mensagens", label: "Mensagens", icon: <ArrowRight size={17} /> },
-          ]
+        : session.role === "PROVIDER"
+          ? [
+              { href: "/prestador/painel", label: "Dashboard", icon: <User size={17} /> },
+              { href: "/prestador/financeiro", label: "Financeiro", icon: <Wallet size={17} /> },
+              { href: "/prestador/assinatura", label: `Assinatura${plan ? ` · ${plan}` : ""}`, icon: <CreditCard size={17} /> },
+              { href: "/prestador/impulsionar", label: "Impulsionar perfil", icon: <Sparkles size={17} /> },
+              { href: "/prestador/servicos", label: "Meus serviços", icon: <ArrowRight size={17} /> },
+              { href: "/mensagens", label: "Mensagens", icon: <ArrowRight size={17} /> },
+            ]
         : [
             { href: "/admin", label: "Painel administrativo", icon: <Shield size={17} /> },
             { href: "/admin/relatorios", label: "Relatórios", icon: <FileText size={17} /> },

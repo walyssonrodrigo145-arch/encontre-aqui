@@ -4,8 +4,8 @@ import { CalendarDays, ClipboardList, Heart, Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { appointments, categories, customers, favorites, providers, quotes } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
-import { APPOINTMENT_STATUS_LABEL, formatDate } from "@/lib/utils";
-import { EmptyState, SectionTitle, StatusBadge } from "@/components/ui";
+import { APPOINTMENT_STATUS_LABEL, formatDate, QUOTE_STATUS_LABEL } from "@/lib/utils";
+import { EmptyState, OrphanProfile, SectionTitle, StatusBadge } from "@/components/ui";
 import { ProviderCard } from "@/components/provider-card";
 import { FadeIn } from "@/components/motion";
 import { searchProviders } from "@/server/services/search";
@@ -23,7 +23,9 @@ export default async function ClientDashboardPage({
   const showWelcome = sp.welcome === "1";
   const session = await requireRole("CUSTOMER");
   const [customer] = await db.select().from(customers).where(eq(customers.userId, session.userId)).limit(1);
-  if (!customer) return null;
+  if (!customer) {
+    return <OrphanProfile message="Não encontramos o seu perfil de cliente." ctaHref="/perfil" ctaLabel="Ir para o perfil" />;
+  }
 
   const [upcoming, recentQuotes, favCount, suggestions, categoryRows] = await Promise.all([
     db
@@ -132,9 +134,9 @@ export default async function ClientDashboardPage({
           ) : (
             <ul className="space-y-2">
               {upcoming.map((a) => (
-                <li key={a.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
-                  <div>
-                    <Link href={`/p/${a.providerSlug}`} className="text-sm font-semibold text-slate-700 hover:text-[var(--primary)]">
+                <li key={a.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2.5 transition hover:bg-slate-100">
+                  <div className="min-w-0">
+                    <Link href={`/p/${a.providerSlug}`} className="block truncate text-sm font-semibold text-slate-700 hover:text-[var(--primary)]">
                       {a.providerName}
                     </Link>
                     <p className="text-xs text-slate-500">{formatDate(a.scheduledAt)}</p>
@@ -163,7 +165,7 @@ export default async function ClientDashboardPage({
                   <Link href={`/app/orcamentos/${q.id}`} className="block rounded-xl bg-slate-50 px-3 py-2.5 transition hover:bg-slate-100">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-medium text-slate-700">{q.description}</p>
-                      <StatusBadge status={q.status} label={q.status === "OPEN" ? "Aguardando" : q.status === "ANSWERED" ? "Orçamento recebido!" : q.status} />
+                      <StatusBadge status={q.status} label={QUOTE_STATUS_LABEL[q.status] ?? q.status} />
                     </div>
                     <p className="mt-0.5 text-xs text-slate-400">{formatDate(q.createdAt)}</p>
                   </Link>

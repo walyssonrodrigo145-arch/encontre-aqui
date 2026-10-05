@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { appointments, customers, providers, services } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
 import { APPOINTMENT_STATUS_LABEL, formatDate } from "@/lib/utils";
-import { EmptyState, StatusBadge } from "@/components/ui";
+import { EmptyState, OrphanProfile, StatusBadge } from "@/components/ui";
 import { AppointmentActions } from "@/components/appointment-actions";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,9 @@ export const metadata = { title: "Meus agendamentos" };
 export default async function ClientAppointmentsPage() {
   const session = await requireRole("CUSTOMER");
   const [customer] = await db.select().from(customers).where(eq(customers.userId, session.userId)).limit(1);
-  if (!customer) return null;
+  if (!customer) {
+    return <OrphanProfile message="Não encontramos o seu perfil de cliente." ctaHref="/perfil" ctaLabel="Ir para o perfil" />;
+  }
 
   const rows = await db
     .select({
@@ -41,7 +43,7 @@ export default async function ClientAppointmentsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="mb-1 text-2xl font-extrabold text-slate-900">Meus agendamentos</h1>
+        <h1 className="font-display mb-1 text-2xl font-extrabold text-slate-900">Meus agendamentos</h1>
         <p className="text-sm text-slate-500">Acompanhe o status dos seus serviços</p>
       </div>
 

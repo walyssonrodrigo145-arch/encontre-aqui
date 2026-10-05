@@ -1,4 +1,5 @@
 import { and, eq, lt, ne } from "drizzle-orm";
+import { isAsaasConfigured, deleteSubscription, deleteSubscriptionCharges } from "@/server/services/asaas";
 import { db } from "@/lib/db";
 import { notifications, payments, subscriptions, boosts, providers } from "@/lib/schema";
 
@@ -96,6 +97,59 @@ export interface ConfirmResult {
 }
 
 /**
+ * PAYMENT_CREATED (renovação de assinatura no Asaas):
+ * cria o payment local PENDING vinculado à subscription, se ainda não existir.
+ */
+export async function handleAsaasPaymentCreated(
+  asaasPaymentId: string,
+  asaasSubscriptionId: string | null,
+  amountCents: number | undefined,
+): Promise<{ ok: boolean }> {
+  const [existing] = await db
+    .select({ id: payments.id })
+    .from(payments)
+    .where(eq(payments.gatewayPaymentId, asaasPaymentId))
+    .limit(1);
+  if (existing) return { ok: true };
+
+  if (!asaasSubscriptionId) return { ok: true };
+  const [sub] = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.gatewaySubscriptionId, asaasSubscriptionId))
+    .limit(1);
+  if (!sub) return { ok: true };
+
+  await db.insert(payments).values({
+    providerId: sub.providerId,
+    subscriptionId: sub.id,
+    amountCents: amountCents ?? 0,
+    description: "Renovação mensal — Asaas",
+    method: "PIX",
+    status: "PENDING",
+    gatewayPaymentId: asaasPaymentId,
+  });
+  return { ok: true };
+}
+
+/** Marca um pagamento do Asaas como FAILED (OVERDUE ou DELETED). */
+export async function markAsaasPaymentState(
+  asaasPaymentId: string,
+  state: "FAILED",
+): Promise<{ ok: boolean }> {
+  const [payment] = await db
+    .select()
+    .from(payments)
+    .where(eq(payments.gatewayPaymentId, asaasPaymentId))
+    .limit(1);
+  if (!payment) return { ok: false };
+  if (payment.status === "CONFIRMED") return { ok: true };
+
+  await db.update(payments).set({ status: state }).where(eq(payments.id, payment.id));
+  return { ok: true };
+}
+
+/**
  * Confirmar pagamento (webhook do gateway ou modo demo).
  * Idempotente: dentro de transação, revalida o status antes de aplicar efeitos.
  */
@@ -180,6 +234,13 @@ export async function expireOverdue(): Promise<{ subs: number; boosts: number }>
 
   for (const { sub, providerUserId } of overdueSubs) {
     const canceled = sub.cancelAtPeriodEnd === true;
+
+    // integração Asaas: encerra a recorrência para não cobrar mais o prestador
+    if (sub.gatewaySubscriptionId && isAsaasConfigured()) {
+      await deleteSubscriptionCharges(sub.gatewaySubscriptionId).catch(() => undefined);
+      await deleteSubscription(sub.gatewaySubscriptionId).catch(() => undefined);
+    }
+
     await db
       .update(subscriptions)
       .set({

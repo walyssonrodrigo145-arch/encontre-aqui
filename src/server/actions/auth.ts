@@ -12,7 +12,7 @@ import {
 } from "@/lib/auth";
 import { loginSchema, registerSchema } from "@/lib/validations";
 import { isValidCNPJ, isValidCPF, slugify } from "@/lib/utils";
-import { hashDocument } from "@/lib/crypto";
+import { encryptDocument, hashDocument } from "@/lib/crypto";
 import { rateLimit } from "@/server/rate-limit";
 
 export interface ActionState {
@@ -106,6 +106,8 @@ export async function registerAction(
         displayName: name,
         slug: `${slugify(name)}-${user!.id}`,
         whatsapp: phone,
+        // reversível (AES-GCM) — necessário para criar o customer no Asaas
+        cpfCnpjEncrypted: encryptDocument(document),
         status: "DRAFT",
       });
       await setSessionCookie({ userId: user!.id, role, name });

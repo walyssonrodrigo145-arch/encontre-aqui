@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Flag, Percent, Star, X } from "lucide-react";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { providers, reports, reviews, users } from "@/lib/schema";
@@ -42,10 +43,10 @@ export default async function AdminReviewsPage() {
       <AdminPageHeader title="Moderação de avaliações" subtitle="Denúncias e conteúdo publicado na plataforma" />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <AdminStat label="Denúncias pendentes" value={reportRows.length} icon={<span className="text-sm font-bold">🚩</span>} tile="bg-red-50 text-red-500" sub="exigem análise" />
-        <AdminStat label="Avaliações recentes" value={rows.length} icon={<span className="text-sm font-bold">★</span>} tile="bg-amber-50 text-amber-600" sub="últimas 50" />
-        <AdminStat label="Média geral" value={avg.toFixed(1).replace(".", ",")} icon={<span className="text-sm font-bold">Ø</span>} tile="bg-sky-50 text-sky-600" sub="das avaliações recentes" />
-        <AdminStat label="Removidas" value={removed} icon={<span className="text-sm font-bold">✕</span>} tile="bg-slate-100 text-slate-500" sub="pela moderação" />
+        <AdminStat label="Denúncias pendentes" value={reportRows.length} icon={<Flag size={18} />} tile="bg-red-50 text-red-500" sub="exigem análise" />
+        <AdminStat label="Avaliações recentes" value={rows.length} icon={<Star size={18} />} tile="bg-amber-50 text-amber-600" sub="últimas 50" />
+        <AdminStat label="Média geral" value={avg.toFixed(1).replace(".", ",")} icon={<Percent size={18} />} tile="bg-sky-50 text-sky-600" sub="das avaliações recentes" />
+        <AdminStat label="Removidas" value={removed} icon={<X size={18} />} tile="bg-slate-100 text-slate-500" sub="pela moderação" />
       </div>
 
       {reportRows.length > 0 && (

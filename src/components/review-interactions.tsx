@@ -101,7 +101,7 @@ export function ReportReviewButton({ reviewId }: { reviewId: number }) {
         <button
           key={reason}
           disabled={pending}
-          className="rounded-full border border-[var(--border)] bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-50"
+          className="min-h-[32px] rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-50"
           onClick={() =>
             startTransition(async () => {
               const res = await reportReviewAction(reviewId, reason);

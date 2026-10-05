@@ -4,24 +4,19 @@ import { ClipboardList } from "lucide-react";
 import { db } from "@/lib/db";
 import { customers, providers, quotes } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
-import { EmptyState, StatusBadge } from "@/components/ui";
+import { formatDate, QUOTE_STATUS_LABEL } from "@/lib/utils";
+import { EmptyState, OrphanProfile, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Minhas solicitações" };
 
-const STATUS_LABEL: Record<string, string> = {
-  OPEN: "Aguardando orçamento",
-  ANSWERED: "Orçamento recebido",
-  ACCEPTED: "Orçamento aceito",
-  CLOSED: "Encerrada",
-};
-
 export default async function ClientQuotesPage() {
   const session = await requireRole("CUSTOMER");
   const [customer] = await db.select().from(customers).where(eq(customers.userId, session.userId)).limit(1);
-  if (!customer) return null;
+  if (!customer) {
+    return <OrphanProfile message="Não encontramos o seu perfil de cliente." ctaHref="/perfil" ctaLabel="Ir para o perfil" />;
+  }
 
   const rows = await db
     .select({
@@ -54,13 +49,13 @@ export default async function ClientQuotesPage() {
         <ul className="space-y-3">
           {rows.map((q) => (
             <li key={q.id}>
-              <Link href={`/app/orcamentos/${q.id}`} className="card block p-4 transition hover:shadow-md">
+              <Link href={`/app/orcamentos/${q.id}`} className="card block p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--primary)]/10">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-slate-700">{q.providerName}</span>
-                  <StatusBadge status={q.status} label={STATUS_LABEL[q.status] ?? q.status} />
+                  <StatusBadge status={q.status} label={QUOTE_STATUS_LABEL[q.status] ?? q.status} />
                 </div>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-500">{q.description}</p>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
                   <span>{formatDate(q.createdAt)}</span>
                   {q.urgency === "EMERGENCY" && <span className="badge bg-red-100 text-red-700">🚨 Emergência</span>}
                   {q.urgency === "URGENT" && <span className="badge bg-amber-100 text-amber-700">Urgente</span>}

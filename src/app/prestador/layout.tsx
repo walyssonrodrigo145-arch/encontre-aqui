@@ -1,11 +1,28 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { eq, and } from "drizzle-orm";
-import { Bell, CalendarDays, ClipboardList, LayoutDashboard, ShieldAlert, Sparkles, Star, CreditCard, FolderOpen, MessageCircle, UserCog, UserPlus } from "lucide-react";
+import {
+  Bell,
+  Briefcase,
+  CalendarDays,
+  ClipboardList,
+  Inbox,
+  LayoutDashboard,
+  ShieldAlert,
+  Sparkles,
+  Star,
+  CreditCard,
+  FolderOpen,
+  MessageCircle,
+  Settings2,
+  UserCog,
+  UserPlus,
+  Wallet,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import { providers, quotes } from "@/lib/schema";
 import { getVerifiedSession } from "@/lib/auth";
-import { DashShell, type DashNavItem } from "@/components/dash-shell";
+import { DashShell, type DashNavGroup } from "@/components/dash-shell";
 
 function BlockedScreen({ title, description, icon }: { title: string; description: string; icon: React.ReactNode }) {
   return (
@@ -75,21 +92,42 @@ export default async function ProviderLayout({ children }: { children: React.Rea
     openCount = openQuotes.length;
   }
 
-  const items: DashNavItem[] = [
-    { href: "/prestador/painel", label: "Dashboard", icon: <LayoutDashboard size={17} /> },
+  const groups: DashNavGroup[] = [
     {
-      href: "/prestador/solicitacoes",
-      label: "Solicitações",
-      icon: <ClipboardList size={17} />,
-      badge: openCount,
+      label: "Geral",
+      icon: <Settings2 size={13} />,
+      items: [{ href: "/prestador/painel", label: "Dashboard", icon: <LayoutDashboard size={17} /> }],
     },
-    { href: "/prestador/agenda", label: "Agenda", icon: <CalendarDays size={17} /> },
-    { href: "/mensagens", label: "Mensagens", icon: <MessageCircle size={17} /> },
-    { href: "/prestador/avaliacoes", label: "Avaliações", icon: <Star size={17} /> },
-    { href: "/prestador/servicos", label: "Serviços", icon: <FolderOpen size={17} /> },
-    { href: "/prestador/perfil", label: "Meu perfil", icon: <UserCog size={17} /> },
-    { href: "/prestador/assinatura", label: "Assinatura", icon: <CreditCard size={17} /> },
-    { href: "/prestador/impulsionar", label: "Impulsionamentos", icon: <Sparkles size={17} /> },
+    {
+      label: "Atendimento",
+      icon: <Inbox size={13} />,
+      items: [
+        {
+          href: "/prestador/solicitacoes",
+          label: "Solicitações",
+          icon: <ClipboardList size={17} />,
+          badge: openCount,
+        },
+        { href: "/prestador/agenda", label: "Agenda", icon: <CalendarDays size={17} /> },
+        { href: "/mensagens", label: "Mensagens", icon: <MessageCircle size={17} /> },
+      ],
+    },
+    {
+      label: "Qualidade",
+      icon: <Star size={13} />,
+      items: [{ href: "/prestador/avaliacoes", label: "Avaliações", icon: <Star size={17} /> }],
+    },
+    {
+      label: "Meu negócio",
+      icon: <Briefcase size={13} />,
+      items: [
+        { href: "/prestador/servicos", label: "Serviços", icon: <FolderOpen size={17} /> },
+        { href: "/prestador/financeiro", label: "Financeiro", icon: <Wallet size={17} /> },
+        { href: "/prestador/perfil", label: "Meu perfil", icon: <UserCog size={17} /> },
+        { href: "/prestador/assinatura", label: "Assinatura", icon: <CreditCard size={17} /> },
+        { href: "/prestador/impulsionar", label: "Impulsionamentos", icon: <Sparkles size={17} /> },
+      ],
+    },
   ];
 
   const subtitle =
@@ -106,7 +144,7 @@ export default async function ProviderLayout({ children }: { children: React.Rea
       title="Dashboard"
       userName={provider?.displayName ?? session.name}
       userSubtitle={subtitle}
-      items={items}
+      groups={groups}
       actions={
         <Link
           href="/notificacoes"

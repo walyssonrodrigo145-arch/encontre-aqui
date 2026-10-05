@@ -87,6 +87,32 @@ export function BoostForm() {
 
   const price = boostPriceCents(type as "BASIC" | "REGIONAL" | "FEATURED", days) / 100;
 
+  if (state?.success && state.pixQrCode) {
+    // modo live: PIX gerado — aguardando pagamento (webhook confirma)
+    return (
+      <div className="card p-6 text-center">
+        <CheckCircle2 size={44} className="mx-auto text-[var(--primary)]" />
+        <p className="mt-2 font-bold text-slate-800">{state.success}</p>
+        <div className="mt-4 rounded-xl bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">PIX copia e cola</p>
+          <p className="mt-2 max-h-24 overflow-y-auto break-all rounded-lg bg-white p-3 text-left text-[11px] leading-relaxed text-slate-600">
+            {state.pixQrCode}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard?.writeText(state.pixQrCode!)}
+            className="btn-outline mt-2 w-full py-2 text-xs"
+          >
+            Copiar código PIX
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-slate-400">
+          Prazo de 3 dias. Assim que o banco confirmar, o impulsionamento ativa automaticamente.
+        </p>
+      </div>
+    );
+  }
+
   if (state?.success) {
     return (
       <div className="card p-6 text-center">
@@ -128,7 +154,7 @@ export function BoostForm() {
               key={d}
               type="button"
               onClick={() => setDays(d)}
-              className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
+              className={`min-h-[42px] rounded-xl border px-4 py-2 text-sm font-medium transition ${
                 days === d
                   ? "border-[var(--primary)] bg-[var(--primary)] text-white"
                   : "border-[var(--border)] bg-white text-slate-600"

@@ -1,3 +1,4 @@
+import { FolderOpen, Layers, Wrench, X } from "lucide-react";
 import { asc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, services, subcategories } from "@/lib/schema";
@@ -23,10 +24,10 @@ export default async function AdminCategoriasPage() {
       <AdminPageHeader title="Categorias e serviços" subtitle="Estrutura do catálogo da plataforma" />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <AdminStat label="Categorias" value={cats.length} icon={<span className="text-sm font-bold">C</span>} sub={`${cats.filter((c) => c.isActive).length} ativas`} />
-        <AdminStat label="Inativas" value={cats.filter((c) => !c.isActive).length} icon={<span className="text-sm font-bold">✕</span>} tile="bg-amber-50 text-amber-600" sub="ocultas da home" />
-        <AdminStat label="Especialidades" value={totalSubs} icon={<span className="text-sm font-bold">S</span>} tile="bg-sky-50 text-sky-600" sub="subcategorias" />
-        <AdminStat label="Serviços" value={totalServices} icon={<span className="text-sm font-bold">⚙</span>} tile="bg-emerald-50 text-emerald-600" sub="no catálogo" />
+        <AdminStat label="Categorias" value={cats.length} icon={<Layers size={18} />} sub={`${cats.filter((c) => c.isActive).length} ativas`} />
+        <AdminStat label="Inativas" value={cats.filter((c) => !c.isActive).length} icon={<X size={18} />} tile="bg-amber-50 text-amber-600" sub="ocultas da home" />
+        <AdminStat label="Especialidades" value={totalSubs} icon={<FolderOpen size={18} />} tile="bg-sky-50 text-sky-600" sub="subcategorias" />
+        <AdminStat label="Serviços" value={totalServices} icon={<Wrench size={18} />} tile="bg-emerald-50 text-emerald-600" sub="no catálogo" />
       </div>
 
       <div className="space-y-4">

@@ -42,7 +42,8 @@ export default async function ProviderReviewsPage() {
         <p className="text-sm text-slate-500">O que os clientes dizem sobre você</p>
       </div>
 
-      <div className="card flex flex-wrap items-center gap-6 border-[var(--primary)]/15 bg-[var(--primary-soft)]/40 p-5">
+      {rows.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-6 border-[var(--primary)]/15 bg-[var(--primary-soft)]/40 p-5">
         <div className="text-center">
           <p className="font-display text-4xl font-extrabold text-slate-900">
             {provider.ratingAvg.toFixed(1).replace(".", ",")}
@@ -64,7 +65,8 @@ export default async function ProviderReviewsPage() {
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState

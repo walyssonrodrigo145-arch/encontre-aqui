@@ -173,6 +173,13 @@ export default async function ProviderDashboardPage() {
 
   return (
     <div className="space-y-5">
+      <div>
+        <h1 className="font-display text-2xl font-extrabold text-slate-900">
+          Olá, {session.name.split(" ")[0]}! 👋
+        </h1>
+        <p className="text-sm text-slate-500">Acompanhe o desempenho do seu negócio na plataforma.</p>
+      </div>
+
       {provider.status === "PENDING" && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
           ⏳ Seu perfil está em análise. Em breve você aparecerá nas buscas!

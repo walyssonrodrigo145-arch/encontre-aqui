@@ -1,3 +1,4 @@
+import { AlertCircle, Check, CircleDollarSign, X } from "lucide-react";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { providers, subscriptionPlans, subscriptions } from "@/lib/schema";
@@ -50,10 +51,10 @@ export default async function AdminAssinaturasPage({
       <AdminPageHeader title="Assinaturas" subtitle="Receita recorrente da plataforma" />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <AdminStat label="Ativas" value={active.length} icon={<span className="text-sm font-bold">✓</span>} tile="bg-emerald-50 text-emerald-600" sub="pagando agora" />
-        <AdminStat label="MRR" value={formatMoney(mrr)} icon={<span className="text-sm font-bold">R$</span>} tile="bg-sky-50 text-sky-600" sub="receita mensal recorrente" />
-        <AdminStat label="Inadimplentes" value={pastDue.length} icon={<span className="text-sm font-bold">!</span>} tile="bg-amber-50 text-amber-600" sub="vencidas" />
-        <AdminStat label="Canceladas" value={canceled.length} icon={<span className="text-sm font-bold">✕</span>} tile="bg-red-50 text-red-500" sub="histórico" />
+        <AdminStat label="Ativas" value={active.length} icon={<Check size={18} />} tile="bg-emerald-50 text-emerald-600" sub="pagando agora" />
+        <AdminStat label="MRR" value={formatMoney(mrr)} icon={<CircleDollarSign size={18} />} tile="bg-sky-50 text-sky-600" sub="receita mensal recorrente" />
+        <AdminStat label="Inadimplentes" value={pastDue.length} icon={<AlertCircle size={18} />} tile="bg-amber-50 text-amber-600" sub="vencidas" />
+        <AdminStat label="Canceladas" value={canceled.length} icon={<X size={18} />} tile="bg-red-50 text-red-500" sub="histórico" />
       </div>
 
       <div className="flex flex-wrap gap-2">

@@ -235,6 +235,15 @@ html {
   scrollbar-width: none;
 }
 
+/* Scrollbar totalmente invisível (sidebar) */
+.scroll-invisible {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-invisible::-webkit-scrollbar {
+  display: none;
+}
+
 /* ─── Leaflet: mantém o mapa abaixo de headers/modais ─── */
 .relative.z-0 .leaflet-pane,
 .relative.z-0 .leaflet-top,

@@ -4,7 +4,7 @@ import { BadgeCheck, Heart, MapPin, Star } from "lucide-react";
 import { db } from "@/lib/db";
 import { customers, favorites, providers } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, OrphanProfile } from "@/components/ui";
 import { FavoriteHeart } from "@/components/favorite-heart";
 import { FadeIn } from "@/components/motion";
 
@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function FavoritosPage() {
   const session = await requireRole("CUSTOMER");
   const [customer] = await db.select().from(customers).where(eq(customers.userId, session.userId)).limit(1);
-  if (!customer) return null;
+  if (!customer) {
+    return <OrphanProfile message="Não encontramos o seu perfil de cliente." ctaHref="/perfil" ctaLabel="Ir para o perfil" />;
+  }
 
   const rows = await db
     .select({
@@ -37,12 +39,12 @@ export default async function FavoritosPage() {
     <div>
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="font-display text-xl font-extrabold text-slate-900">Meus favoritos ❤️</h2>
+          <h1 className="font-display text-2xl font-extrabold text-slate-900">Meus favoritos ❤️</h1>
           <p className="text-sm text-slate-500">
             {rows.length > 0 ? `${rows.length} profissional(is) salvos` : "Profissionais que você salvou aparecem aqui"}
           </p>
         </div>
-        <Link href="/busca" className="btn-outline hidden text-xs sm:inline-flex">
+        <Link href="/busca" className="btn-outline text-xs sm:inline-flex">
           Explorar
         </Link>
       </div>

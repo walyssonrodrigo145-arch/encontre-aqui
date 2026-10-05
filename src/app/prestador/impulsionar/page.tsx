@@ -1,11 +1,11 @@
 import { and, desc, eq, gt, gte } from "drizzle-orm";
-import { Eye, MousePointerClick, Rocket } from "lucide-react";
+import { CheckCircle2, Eye, MousePointerClick, Rocket } from "lucide-react";
 import { db } from "@/lib/db";
 import { boosts, providerStats, providers } from "@/lib/schema";
 import { requireRole } from "@/lib/auth";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { BoostForm } from "@/components/monetization-forms";
-import { SectionTitle, StatCard, StatusBadge } from "@/components/ui";
+import { SectionTitle, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +45,13 @@ export default async function ImpulsionarPage() {
   const views7d = statsRows.reduce((a, r) => a + Number(r.views), 0);
   const clicks7d = statsRows.reduce((a, r) => a + Number(r.clicks), 0);
 
+  const stats = [
+    { label: "Visualizações (7d)", value: views7d, icon: <Eye size={18} />, tile: "bg-violet-50 text-violet-600" },
+    { label: "Cliques no contato (7d)", value: clicks7d, icon: <MousePointerClick size={18} />, tile: "bg-sky-50 text-sky-600" },
+    { label: "Serviços concluídos", value: provider.completedJobs, icon: <CheckCircle2 size={18} />, tile: "bg-emerald-50 text-emerald-600" },
+    { label: "Impulsões ativos", value: activeBoosts.length, icon: <Rocket size={18} />, tile: "bg-amber-50 text-amber-600" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -52,16 +59,19 @@ export default async function ImpulsionarPage() {
         <p className="text-sm text-slate-500">Apareça para mais clientes na sua região</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Visualizações (7d)" value={views7d} icon={<Eye size={18} />} accent="bg-purple-100 text-purple-700" />
-        <StatCard label="Cliques no contato (7d)" value={clicks7d} icon={<MousePointerClick size={18} />} accent="bg-blue-100 text-blue-700" />
-        <StatCard label="Serviços concluídos" value={provider.completedJobs} icon={<Rocket size={18} />} />
-        <StatCard
-          label="Impulsões ativos"
-          value={activeBoosts.length}
-          icon={<Rocket size={18} />}
-          accent="bg-amber-100 text-amber-700"
-        />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--primary)]/10"
+          >
+            <div className="flex items-start justify-between p-4">
+              <p className="text-xs font-medium text-slate-500">{s.label}</p>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.tile}`}>{s.icon}</span>
+            </div>
+            <p className="font-display -mt-2 px-4 text-2xl font-extrabold text-slate-900">{s.value}</p>
+          </div>
+        ))}
       </div>
 
       {activeBoosts.length > 0 && (

@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { Rocket } from "lucide-react";
+import { AlertCircle, Clock, Rocket } from "lucide-react";
 import { db } from "@/lib/db";
 import { boosts, providers } from "@/lib/schema";
 import { formatDate, formatMoney } from "@/lib/utils";
@@ -55,8 +55,8 @@ export default async function AdminBoostsPage({
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <AdminStat label="Ativos" value={active.length} icon={<Rocket size={18} />} tile="bg-emerald-50 text-emerald-600" sub="no ar agora" />
         <AdminStat label="Receita total" value={formatMoney(revenue)} icon={<span className="text-sm font-bold">R$</span>} tile="bg-sky-50 text-sky-600" sub="boosts pagos" />
-        <AdminStat label="Expirando em 7d" value={expiring} icon={<span className="text-sm font-bold">⏱</span>} tile="bg-amber-50 text-amber-600" sub="renovar/avisar" />
-        <AdminStat label="Pendentes" value={rows.filter((r) => r.boost.status === "PENDING_PAYMENT").length} icon={<span className="text-sm font-bold">!</span>} tile="bg-red-50 text-red-500" sub="aguardando pagamento" />
+        <AdminStat label="Expirando em 7d" value={expiring} icon={<Clock size={18} />} tile="bg-amber-50 text-amber-600" sub="renovar/avisar" />
+        <AdminStat label="Pendentes" value={rows.filter((r) => r.boost.status === "PENDING_PAYMENT").length} icon={<AlertCircle size={18} />} tile="bg-red-50 text-red-500" sub="aguardando pagamento" />
       </div>
 
       <div className="flex flex-wrap gap-2">

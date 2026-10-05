@@ -71,6 +71,8 @@ export const providers = sqliteTable(
     headline: text("headline"),
     bio: text("bio"),
     cpfCnpjEncrypted: text("cpf_cnpj_encrypted"),
+    asaasCustomerId: text("asaas_customer_id"),
+    trialUsed: integer("trial_used", { mode: "boolean" }).notNull().default(false),
     cep: text("cep"),
     city: text("city"),
     state: text("state"),
@@ -206,6 +208,33 @@ export const blockedDates = sqliteTable(
     reason: text("reason"),
   },
   (t) => [index("blocked_provider_date_idx").on(t.providerId, t.date)],
+);
+
+// ───────────────────────────── FINANCEIRO ─────────────────────────────
+
+export const providerFinances = sqliteTable(
+  "provider_finances",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    providerId: integer("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["INCOME", "EXPENSE"] }).notNull(),
+    title: text("title").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    occurredAt: text("occurred_at").notNull(), // "yyyy-mm-dd" (BRT)
+    category: text("category").notNull().default("outro"),
+    notes: text("notes"),
+    source: text("source", { enum: ["MANUAL", "PLATFORM"] })
+      .notNull()
+      .default("MANUAL"),
+    appointmentId: integer("appointment_id"),
+    createdAt: ts("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [
+    index("finances_provider_date_idx").on(t.providerId, t.occurredAt),
+    index("finances_appointment_idx").on(t.appointmentId),
+  ],
 );
 
 // ───────────────────────────── PORTFÓLIO ─────────────────────────────

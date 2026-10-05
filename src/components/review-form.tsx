@@ -12,7 +12,13 @@ function StarPicker({ name, label }: { name: string; label: string }) {
       <span className="text-sm text-slate-600">{label}</span>
       <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((i) => (
-          <button key={i} type="button" onClick={() => setValue(i)} aria-label={`${i} estrelas`}>
+          <button
+            key={i}
+            type="button"
+            onClick={() => setValue(i)}
+            aria-label={`${i} estrelas`}
+            className="transition-transform duration-150 hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 rounded"
+          >
             <Star
               size={18}
               className={i <= value ? "fill-[var(--accent)] text-[var(--accent)]" : "fill-slate-200 text-slate-200"}

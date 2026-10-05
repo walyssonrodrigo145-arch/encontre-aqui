@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Star, BadgeCheck, MapPin, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -143,6 +144,24 @@ export function LocationLine({ city, state }: { city: string; state: string }) {
       <MapPin size={13} />
       {city} - {state}
     </span>
+  );
+}
+
+/** Tela amigável para perfil órfão (sessão válida sem row de perfil). */
+export function OrphanProfile({ message, ctaHref, ctaLabel }: { message: string; ctaHref: string; ctaLabel: string }) {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="card w-full max-w-md p-8 text-center">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+          ⚠️
+        </span>
+        <h1 className="font-display mt-4 text-lg font-extrabold text-slate-900">Perfil não encontrado</h1>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">{message}</p>
+        <Link href={ctaHref} className="btn-primary mt-6 w-full">
+          {ctaLabel}
+        </Link>
+      </div>
+    </div>
   );
 }
 

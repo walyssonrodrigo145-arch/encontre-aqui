@@ -19,7 +19,7 @@ export interface ProfileState {
   success?: string;
 }
 
-/** Limite de portfÃ³lio: plano ativo ou 6 por padrÃ£o (sem plano). */
+/** Limite de portfólio: plano ativo ou 6 por padrão (sem plano). */
 const DEFAULT_PORTFOLIO_LIMIT = 6;
 const MAX_IMAGE_CHARS = 1_500_000; // ~1.1MB por imagem em data-URL
 
@@ -35,11 +35,11 @@ function validateAvailability(rules: AvailabilityRule[]): { ok: AvailabilityRule
   const seen = new Set<number>();
   const ok: AvailabilityRule[] = [];
   for (const a of rules) {
-    if (!Number.isInteger(a.weekday) || a.weekday < 0 || a.weekday > 6) return { ok: [], error: "Dia da semana invÃ¡lido." };
-    if (!HHMM.test(a.startTime) || !HHMM.test(a.endTime)) return { ok: [], error: "HorÃ¡rio invÃ¡lido." };
-    if (a.startTime >= a.endTime) return { ok: [], error: "A hora de inÃ­cio deve ser antes da de fim." };
+    if (!Number.isInteger(a.weekday) || a.weekday < 0 || a.weekday > 6) return { ok: [], error: "Dia da semana inválido." };
+    if (!HHMM.test(a.startTime) || !HHMM.test(a.endTime)) return { ok: [], error: "Horário inválido." };
+    if (a.startTime >= a.endTime) return { ok: [], error: "A hora de início deve ser antes da de fim." };
     if (!Number.isInteger(a.slotMinutes) || a.slotMinutes < 15 || a.slotMinutes > 480) {
-      return { ok: [], error: "DuraÃ§Ã£o do slot deve estar entre 15 e 480 minutos." };
+      return { ok: [], error: "Duração do slot deve estar entre 15 e 480 minutos." };
     }
     if (seen.has(a.weekday)) return { ok: [], error: "Use apenas uma janela por dia da semana." };
     seen.add(a.weekday);
@@ -106,7 +106,7 @@ export interface ServiceLinkInput {
   priceMax?: number | null;
 }
 
-/** Sincroniza serviÃ§os + preÃ§os do prestador com o catÃ¡logo. */
+/** Sincroniza serviços + preços do prestador com o catálogo. */
 export async function saveServicesAction(items: ServiceLinkInput[]): Promise<ProfileState> {
   try {
     const { provider } = await getProviderWithPlan();
@@ -115,11 +115,11 @@ export async function saveServicesAction(items: ServiceLinkInput[]): Promise<Pro
     const seen = new Set<number>();
     const cleaned: ServiceLinkInput[] = [];
     for (const item of items) {
-      if (!Number.isInteger(item.serviceId) || item.serviceId <= 0) return { error: "ServiÃ§o invÃ¡lido." };
-      if (seen.has(item.serviceId)) return { error: "ServiÃ§o duplicado na lista." };
+      if (!Number.isInteger(item.serviceId) || item.serviceId <= 0) return { error: "Serviço inválido." };
+      if (seen.has(item.serviceId)) return { error: "Serviço duplicado na lista." };
       seen.add(item.serviceId);
 
-      if (!["FIXED", "RANGE", "ON_QUOTE"].includes(item.priceType)) return { error: "Tipo de preÃ§o invÃ¡lido." };
+      if (!["FIXED", "RANGE", "ON_QUOTE"].includes(item.priceType)) return { error: "Tipo de preço inválido." };
 
       let priceMin: number | null = null;
       let priceMax: number | null = null;
@@ -129,15 +129,13 @@ export async function saveServicesAction(items: ServiceLinkInput[]): Promise<Pro
 
       if (item.priceType === "FIXED") {
         if (!priceMin || priceMin < 100 || priceMin > 10_000_000) {
-          return { error: "Informe um preÃ§o vÃ¡lido (mÃ­nimo R$ 1,00)." };
+          return { error: "Informe um preço válido (mínimo R$ 1,00)." };
         }
       } else if (item.priceType === "RANGE") {
         if (!priceMin || !priceMax || priceMin < 100 || priceMax < 100) {
-          return { error: "Informe os preÃ§os mÃ­n. e mÃ¡x. (mÃ­nimo R$ 1,00)." };
+          return { error: "Informe os preços mín. e máx. (mínimo R$ 1,00)." };
         }
-        if (priceMin >= priceMax) return { error: "O preÃ§o mÃ­nimo deve ser menor que o mÃ¡ximo." };
-        priceMin = item.priceMin ?? null;
-        priceMax = item.priceMax ?? null;
+        if (priceMin >= priceMax) return { error: "O preço mínimo deve ser menor que o máximo." };
       } else {
         priceMin = null;
         priceMax = null;
@@ -145,19 +143,19 @@ export async function saveServicesAction(items: ServiceLinkInput[]): Promise<Pro
 
       cleaned.push({ serviceId: item.serviceId, priceType: item.priceType, priceMin, priceMax });
     }
-    if (cleaned.length === 0) return { error: "Selecione ao menos um serviÃ§o." };
+    if (cleaned.length === 0) return { error: "Selecione ao menos um serviço." };
 
-    // todos os serviceIds devem existir no catÃ¡logo
+    // todos os serviceIds devem existir no catálogo
     const catalogIds = await db
       .select({ id: services.id })
       .from(services)
       .where(inArray(services.id, cleaned.map((c) => c.serviceId)));
-    if (catalogIds.length !== cleaned.length) return { error: "ServiÃ§o inexistente no catÃ¡logo." };
+    if (catalogIds.length !== cleaned.length) return { error: "Serviço inexistente no catálogo." };
 
     const keepIds = cleaned.map((c) => c.serviceId);
 
     await db.transaction(async (tx) => {
-      // remove links que saÃ­ram da lista
+      // remove links que saíram da lista
       const current = await tx
         .select({ id: providerServices.id, serviceId: providerServices.serviceId })
         .from(providerServices)
@@ -185,7 +183,7 @@ export async function saveServicesAction(items: ServiceLinkInput[]): Promise<Pro
 
     revalidatePath("/prestador/perfil");
     revalidatePath("/prestador/servicos");
-    return { success: "ServiÃ§os e preÃ§os salvos!" };
+    return { success: "Serviços e preços salvos!" };
   } catch (e) {
     return { error: friendlyError(e) };
   }
@@ -197,20 +195,17 @@ export interface PortfolioItemInput {
   description?: string;
 }
 
-/** Salva o portfÃ³lio respeitando o limite do plano. */
+/** Salva o portfólio respeitando o limite do plano. */
 export async function savePortfolioAction(items: PortfolioItemInput[]): Promise<ProfileState> {
   try {
-    const { session, provider, plan } = await getProviderWithPlan();
+    const { provider, plan } = await getProviderWithPlan();
     if (provider.status !== "APPROVED") return { error: "Sua conta precisa estar aprovada." };
 
     const limit = plan?.maxPortfolio ?? DEFAULT_PORTFOLIO_LIMIT;
     if (items.length > limit) {
       return {
-        error: `Seu plano permite atÃ© ${limit} trabalho(s) no portfÃ³lio. Remova ${items.length - limit} para salvar â€” ou faÃ§a upgrade do plano.`,
+        error: `Seu plano permite até ${limit} trabalho(s) no portfólio. Remova ${items.length - limit} para salvar — ou faça upgrade do plano.`,
       };
-    }
-    if (items.length > 0 && !plan) {
-      // sem plano ativo: avisa que o limite Ã© o padrÃ£o
     }
 
     const cleaned = items.slice(0, limit).map((item, i) => {
@@ -237,20 +232,19 @@ export async function savePortfolioAction(items: PortfolioItemInput[]): Promise<
       if (cleaned.length > 0) await tx.insert(portfolio).values(cleaned);
     });
 
-    void session;
     revalidatePath("/prestador/perfil");
     revalidatePath("/prestador/servicos");
-    return { success: "PortfÃ³lio salvo!" };
+    return { success: "Portfólio salvo!" };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
-    if (msg === "FORMAT") return { error: "Formato de imagem invÃ¡lido." };
-    if (msg === "TOO_BIG") return { error: "Uma das imagens Ã© grande demais. Tente outra foto." };
-    if (msg === "NO_VIDEO") return { error: "Seu plano nÃ£o permite vÃ­deos no portfÃ³lio." };
+    if (msg === "FORMAT") return { error: "Formato de imagem inválido." };
+    if (msg === "TOO_BIG") return { error: "Uma das imagens é grande demais. Tente outra foto." };
+    if (msg === "NO_VIDEO") return { error: "Seu plano não permite vídeos no portfólio." };
     return { error: friendlyError(e) };
   }
 }
 
-/** Carrega dados para a pÃ¡gina Meu perfil (limite do plano incluÃ­do). */
+/** Carrega dados para a página Meu perfil (limite do plano incluído). */
 export async function getMyPortfolioLimit(): Promise<{ limit: number; allowVideos: boolean; planName: string | null }> {
   try {
     const { plan } = await getProviderWithPlan();

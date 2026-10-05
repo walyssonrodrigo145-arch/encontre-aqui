@@ -97,12 +97,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
         {/* topo mobile: gradiente com logo */}
         <div className="bg-brand-gradient flex items-center justify-between px-5 py-4 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15">
-              <span className="font-display text-sm font-black text-white">E</span>
-            </span>
-            <span className="font-display text-base font-extrabold tracking-tight text-white">
-              encontre <span className="text-white/80">aqui</span>
-            </span>
+            <BrandLogo variant="light" size="sm" />
           </Link>
           <Link href="/" className="text-xs font-medium text-white/80">
             Início

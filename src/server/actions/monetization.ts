@@ -8,6 +8,9 @@ import { boosts, notifications, providers, subscriptionPlans, subscriptions } fr
 import { requireRole } from "@/lib/auth";
 import { PaymentGateway, createSubscriptionWithPayment, confirmPayment } from "@/server/services/payments";
 import { BOOST_CONFIG, boostPriceCents } from "@/lib/boost";
+import { upsertCustomer, createPixCharge, createSubscription } from "@/server/services/asaas";
+import { decryptDocument } from "@/lib/crypto";
+import { brtDateString } from "@/lib/tz";
 
 /**
  * Modo de pagamento: "demo" confirma na hora (desenvolvimento/staging).
@@ -16,6 +19,34 @@ import { BOOST_CONFIG, boostPriceCents } from "@/lib/boost";
  */
 function isDemoPayments(): boolean {
   return (process.env.PAYMENTS_MODE ?? "demo") !== "live";
+}
+
+/** Trial: 30 dias de acesso + 3 dias de prazo = primeira cobrança no dia 33. */
+const TRIAL_DAYS = 30;
+const PAYMENT_DEADLINE_DAYS = 3;
+
+/** Cria (ou recupera) o customer do prestador no Asaas usando o documento criptografado. */
+async function ensureAsaasCustomer(provider: {
+  id: number;
+  displayName: string;
+  cpfCnpjEncrypted: string | null;
+  asaasCustomerId: string | null;
+}): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
+  if (provider.asaasCustomerId) return { ok: true, customerId: provider.asaasCustomerId };
+
+  const doc = decryptDocument(provider.cpfCnpjEncrypted);
+  if (!doc) {
+    return {
+      ok: false,
+      error: "Documento do prestador não disponível para cobrança. Entre em contato com o suporte.",
+    };
+  }
+
+  const result = await upsertCustomer({ name: provider.displayName, cpfCnpj: doc, email: "" });
+  if (!result.ok || !result.data) return { ok: false, error: result.error ?? "Erro no gateway de pagamento." };
+
+  await db.update(providers).set({ asaasCustomerId: result.data.customerId }).where(eq(providers.id, provider.id));
+  return { ok: true, customerId: result.data.customerId };
 }
 
 export interface MonetizationState {
@@ -43,6 +74,7 @@ export async function subscribeAction(
     // transação: checagem de assinatura ativa + criação são atômicas (evita cobrança dupla)
     let gatewayPaymentId: string | undefined;
     let duplicateError: string | undefined;
+    let liveTrialActivated = false;
     await db.transaction(async (tx) => {
       const [activeSub] = await tx
         .select({ id: subscriptions.id })
@@ -53,6 +85,58 @@ export async function subscribeAction(
         duplicateError = "Você já possui uma assinatura ativa. Cancele-a antes de trocar de plano.";
         return;
       }
+
+      if (!isDemoPayments()) {
+        // ── MODO LIVE (Asaas real) ──
+        const customer = await ensureAsaasCustomer(provider);
+        if (!customer.ok) {
+          duplicateError = customer.error;
+          return;
+        }
+
+        // trial: 30 dias de acesso grátis + 3 dias de prazo (primeira cobrança no dia 33)
+        const useTrial = !provider.trialUsed;
+        const now = new Date();
+        const windowDays = useTrial ? TRIAL_DAYS + PAYMENT_DEADLINE_DAYS : PAYMENT_DEADLINE_DAYS;
+        const periodEnd = new Date(now.getTime() + windowDays * 24 * 3600_000);
+        const nextDueDate = brtDateString(new Date(now.getTime() + windowDays * 24 * 3600_000));
+
+        const [sub] = await tx
+          .insert(subscriptions)
+          .values({
+            providerId: provider.id,
+            planId: plan.id,
+            status: "ACTIVE",
+            currentPeriodStart: now,
+            currentPeriodEnd: periodEnd,
+          })
+          .returning({ id: subscriptions.id });
+        const subscriptionId = sub!.id;
+
+        if (useTrial) {
+          await tx.update(providers).set({ trialUsed: true }).where(eq(providers.id, provider.id));
+        }
+
+        const asaas = await createSubscription({
+          customerId: customer.customerId,
+          valueCents: plan.priceCents,
+          description: `Assinatura ${plan.name} — mensal`,
+          nextDueDate,
+          externalReference: `sub_${subscriptionId}`,
+        });
+        if (!asaas.ok || !asaas.data) {
+          throw new Error(asaas.error ?? "Erro no gateway de pagamento.");
+        }
+        await tx
+          .update(subscriptions)
+          .set({ gatewaySubscriptionId: asaas.data.subscriptionId })
+          .where(eq(subscriptions.id, subscriptionId));
+
+        liveTrialActivated = useTrial;
+        return; // live: pagamento confirmado apenas via webhook
+      }
+
+      // ── MODO DEMO ──
       const res = await createSubscriptionWithPayment(tx, {
         providerId: provider.id,
         planId: plan.id,
@@ -63,25 +147,41 @@ export async function subscribeAction(
     });
 
     if (duplicateError) return { error: duplicateError };
-    if (!gatewayPaymentId) return { error: "Não foi possível criar a assinatura. Tente novamente." };
 
-    // modo demo: confirma na hora para o fluxo funcionar end-to-end
-    if (isDemoPayments()) await confirmPayment(gatewayPaymentId);
+    if (isDemoPayments()) {
+      if (!gatewayPaymentId) return { error: "Não foi possível criar a assinatura. Tente novamente." };
+      await confirmPayment(gatewayPaymentId);
 
+      await db.insert(notifications).values({
+        userId: session.userId,
+        type: "SUBSCRIPTION_ACTIVE",
+        title: `Assinatura ${plan.name} ativada! 🎉`,
+        body: `Plano ativo por 30 dias (${(plan.priceCents / 100).toFixed(2).replace(".", ",")}). Você será avisado na renovação.`,
+        link: "/prestador/assinatura",
+      });
+
+      revalidatePath("/prestador/assinatura");
+      revalidatePath("/prestador/painel");
+      return { success: `Plano ${plan.name} ativado com sucesso!` };
+    }
+
+    // ── LIVE: sub ativa (trial) ou aguardando PIX — confirmação vem pelo webhook ──
     await db.insert(notifications).values({
       userId: session.userId,
       type: "SUBSCRIPTION_ACTIVE",
-      title: `Assinatura ${plan.name} ativada! 🎉`,
-      body: `Plano ativo por 30 dias (${(plan.priceCents / 100).toFixed(2).replace(".", ",")}). Você será avisado na renovação.`,
+      title: `Assinatura ${plan.name} registrada!`,
+      body: liveTrialActivated
+        ? `Trial de ${TRIAL_DAYS} dias ativado! Primeira cobrança só depois do trial.`
+        : "Aguardando pagamento PIX. O acesso é liberado na confirmação.",
       link: "/prestador/assinatura",
     });
 
     revalidatePath("/prestador/assinatura");
     revalidatePath("/prestador/painel");
     return {
-      success: isDemoPayments()
-        ? `Plano ${plan.name} ativado com sucesso!`
-        : `Assinatura criada! Conclua o pagamento para ativar o plano ${plan.name}.`,
+      success: liveTrialActivated
+        ? `Trial de ${TRIAL_DAYS} dias do plano ${plan.name} ativado!`
+        : "Assinatura criada! Pague o PIX para ativar.",
     };
   } catch (e) {
     return { error: friendlyError(e) };
@@ -178,22 +278,40 @@ export async function createBoostAction(
     if (boostError) return { error: boostError };
     if (!boostId) return { error: "Não foi possível criar o impulsionamento. Tente novamente." };
 
-    const payment = await PaymentGateway.createPayment({
-      providerId: provider.id,
-      boostId,
-      amountCents: priceCents,
-      description: `Impulsionamento ${BOOST_CONFIG[type]!.label} — ${days} dia(s)`,
-      method: "PIX",
-    });
+    let pixQr = "";
+    if (isDemoPayments()) {
+      // ── DEMO: pagamento local fake confirmado na hora ──
+      const payment = await PaymentGateway.createPayment({
+        providerId: provider.id,
+        boostId: boostId!,
+        amountCents: priceCents,
+        description: `Impulsionamento ${BOOST_CONFIG[type]!.label} — ${days} dia(s)`,
+        method: "PIX",
+      });
+      if (payment.gatewayPaymentId) await confirmPayment(payment.gatewayPaymentId);
+      pixQr = payment.pixQrCode ?? "";
+    } else {
+      // ── LIVE: PIX real no Asaas com vencimento em 3 dias ──
+      const customer = await ensureAsaasCustomer(provider);
+      if (!customer.ok) return { error: customer.error };
 
-    // modo demo: confirma na hora
-    if (isDemoPayments() && payment.gatewayPaymentId) await confirmPayment(payment.gatewayPaymentId);
+      const charge = await createPixCharge({
+        customerId: customer.customerId,
+        valueCents: priceCents,
+        description: `Impulsionamento ${BOOST_CONFIG[type]!.label} — ${days} dia(s)`,
+        externalReference: `boost_${boostId}`,
+      });
+      if (!charge.ok || !charge.data) return { error: charge.error ?? "Erro ao gerar o PIX." };
+      pixQr = charge.data.qrCode;
+    }
 
     await db.insert(notifications).values({
       userId: session.userId,
       type: "BOOST_ACTIVE",
-      title: "🚀 Impulsionamento ativo!",
-      body: `Seu perfil está com mais exposição por ${days} dia(s).`,
+      title: isDemoPayments() ? "🚀 Impulsionamento ativo!" : "🚀 PIX gerado!",
+      body: isDemoPayments()
+        ? `Seu perfil está com mais exposição por ${days} dia(s).`
+        : `Pague o PIX em até 3 dias para ativar ${days} dia(s) de destaque.`,
       link: "/prestador/impulsionar",
     });
 
@@ -201,8 +319,8 @@ export async function createBoostAction(
     return {
       success: isDemoPayments()
         ? `Impulsionamento ${BOOST_CONFIG[type]!.label} ativo por ${days} dia(s)!`
-        : `Impulsionamento criado! Conclua o pagamento para ativá-lo.`,
-      pixQrCode: payment.pixQrCode,
+        : "PIX gerado! Pague em até 3 dias para ativar o impulsionamento.",
+      pixQrCode: pixQr,
     };
   } catch (e) {
     return { error: friendlyError(e) };

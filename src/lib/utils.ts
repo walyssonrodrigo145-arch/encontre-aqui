@@ -182,6 +182,14 @@ export const QUOTE_URGENCY_LABEL: Record<string, string> = {
   EMERGENCY: "Emergência",
 };
 
+/** Fonte única dos rótulos de status de orçamento (cliente e prestador). */
+export const QUOTE_STATUS_LABEL: Record<string, string> = {
+  OPEN: "Aguardando orçamento",
+  ANSWERED: "Orçamento recebido",
+  ACCEPTED: "Aceito",
+  CLOSED: "Encerrado",
+};
+
 export const CATEGORY_ICONS: Record<string, string> = {
   construcao: "hammer",
   reformas: "paint-roller",

@@ -4,7 +4,6 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { appointments, customers, providers } from "@/lib/schema";
 import { getVerifiedSession } from "@/lib/auth";
-import { Navbar, Footer } from "@/components/navbar";
 import { ReviewForm } from "@/components/review-form";
 
 export const metadata = { title: "Avaliar serviço" };
@@ -40,18 +39,14 @@ export default async function AvaliarPage({ params }: { params: Promise<{ id: st
   if (!row) notFound();
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar />
-      <main className="mx-auto w-full max-w-lg flex-1 px-4 py-10">
-        <h1 className="text-center text-2xl font-extrabold text-slate-900">Como foi sua experiência?</h1>
-        <p className="mt-1 text-center text-sm text-slate-500">
-          Serviço com <Link href={`/p/${row.providerSlug}`} className="font-semibold text-[var(--primary)]">{row.providerName}</Link>
-        </p>
-        <div className="mt-6">
-          <ReviewForm appointmentId={appointmentId} />
-        </div>
-      </main>
-      <Footer />
+    <div className="mx-auto w-full max-w-lg px-4 py-10">
+      <h1 className="font-display text-center text-2xl font-extrabold text-slate-900">Como foi sua experiência?</h1>
+      <p className="mt-1 text-center text-sm text-slate-500">
+        Serviço com <Link href={`/p/${row.providerSlug}`} className="font-semibold text-[var(--primary)]">{row.providerName}</Link>
+      </p>
+      <div className="mt-6">
+        <ReviewForm appointmentId={appointmentId} />
+      </div>
     </div>
   );
 }

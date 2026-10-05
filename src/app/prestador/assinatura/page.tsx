@@ -67,6 +67,13 @@ export default async function AssinaturaPage() {
         </div>
       )}
 
+      {!current && !(lastInactive && lastInactive.sub.status === "PAST_DUE") && (
+        <div className="rounded-2xl border border-[var(--border)] bg-white p-4 text-sm text-slate-600">
+          Você está no <b>plano gratuito</b> — assine um plano para ganhar destaque nas buscas, mais
+          portfólio e estatísticas avançadas.
+        </div>
+      )}
+
       {current && (
         <div className="card flex flex-wrap items-center justify-between gap-3 border-[var(--primary)] bg-[var(--primary-light)]/40 p-5">
           <div>
